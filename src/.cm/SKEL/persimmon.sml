@@ -1,0 +1,2 @@
+Skeleton 5
+d2aã¢TERM_SPEC"h2aä¢NonTermKey"çğ±ã¢ORD_KEY"aä¢TermKey"ÿae"PersimmonFn"i1aä¢TermSpec"gp1ÿh8egp1ÿf6d"List"Cd"ExtList"ÿÿd"HigherOrder"ÿ-Nad"NonTermSet"jgp1ÿçğ±å¢ListSetFn"Caä¢TermSet"jgp1ÿ-ÿ‚"aä¢SymKey"jh0ÿaä¢SymMap"jgp1ÿƒgp1e"ListMapFn"ad"TermSetShow"jh1ad"Set"gp1ÿ‚3gp1e"SetShowFn"ad"SymMapShow"jh1ad"Map"gp1ÿƒgp1e"MapShowFn"N
