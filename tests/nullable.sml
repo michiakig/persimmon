@@ -114,3 +114,5 @@ local
 in
    fun doTests (_,_) = (runTests true nullableTests; 1)
 end
+
+end
