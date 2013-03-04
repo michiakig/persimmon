@@ -1,0 +1,9 @@
+Library
+    structure SimpleTests
+is
+    ../../lexluthor/lib/lib.cm
+    ../../lexluthor/tests/framework.cm
+    ../persimmon.cm
+    nullable.sml
+    $/basis.cm
+    $/smlnj-lib.cm
