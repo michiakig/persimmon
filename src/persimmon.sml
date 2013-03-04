@@ -123,10 +123,29 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
                  SymMap.insert (follow, y, TermSet.union (x', y'))
           end
 
-      structure TermSetShow = SetShowFn(structure Set=TermSet
-                                        val show = showTerm)
-      structure SymMapShow = MapShowFn(structure Map=SymMap
-                                       val showKey = TermSpec.show)
+      structure TermSetShow = SetShowFn(structure Set = TermSet
+                                        structure Show =
+                                           struct
+                                              type t = TermSpec.term
+                                              val show = TermSpec.showTerm
+                                           end)
+
+      local
+         structure K =
+            struct
+               type t = TermSpec.symbol
+               val show = TermSpec.show
+            end
+         structure V =
+            struct
+               type t = TermSet.set
+               val show = TermSetShow.show
+            end
+      in
+         structure SymMapShow = MapShowFn(structure Map = SymMap
+                                          structure K = K
+                                          structure V = V)
+      end
 
       fun FOLLOW (nullable, first, prods) =
           let
@@ -178,7 +197,7 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
                  end
 
              fun step follow =
-                 (print (SymMapShow.showMap TermSetShow.showSet follow);
+                 (print (SymMapShow.show follow);
                   print "\n";
                   foldl forEachProd follow prods)
 
