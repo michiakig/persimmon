@@ -3,6 +3,6 @@ Library
     functor PersimmonFn
 is
     src/persimmon.sml
-    ../lexluthor/lib/utils.cm
+    ../lexluthor/lib/lib.cm
     $/basis.cm
     $/smlnj-lib.cm
