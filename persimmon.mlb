@@ -1,0 +1,7 @@
+$(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+../lexluthor/lib/lib.sml
+../lexluthor/tests/framework.sml
+src/persimmon.sml
+tests/nullable.sml
+tests/mlton.sml
