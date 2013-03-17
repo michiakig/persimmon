@@ -83,36 +83,66 @@ val n: NonTermSet.set = nullable grammar
 val fi: TermSet.set SymMap.map = FIRST (n, terminals, grammar)
 val fo: TermSet.set SymMap.map = FOLLOW (n, fi, grammar)
 
-structure NonTermSetShow = SetShowFn(structure Set = Persimmon.NonTermSet
-                                     structure Show =
-                                        struct
-                                           type t = TermSpec.nonterm
-                                           val show = TermSpec.showNonTerm
-                                        end)
-
+structure NonTermSetShow =
+   SetShowFn(structure Set = Persimmon.NonTermSet
+             structure Show =
+                struct
+                   type t = TermSpec.nonterm
+                   val show = TermSpec.showNonTerm
+                end)
 structure NonTermSetEq: EQ =
    struct
       type t = Persimmon.NonTermSet.set
       val eq = Persimmon.NonTermSet.equal
    end
+structure TermSetShow =
+   SetShowFn(structure Set = Persimmon.TermSet
+             structure Show =
+                struct
+                   type t = TermSpec.term
+                   val show = TermSpec.showTerm
+                end)
+structure TermSetEq: EQ =
+   struct
+      type t = Persimmon.TermSet.set
+      val eq = Persimmon.TermSet.equal
+   end
 
 local
-   structure NullableTest = TestFn(structure Show = NonTermSetShow
-                                   structure Eq = NonTermSetEq)
-   open NullableTest
-
+   structure N = TestFn(structure Show = NonTermSetShow
+                        structure Eq = NonTermSetEq)
+   structure F = TestFn(structure Show = TermSetShow
+                        structure Eq = TermSetEq)
    structure S = Persimmon.NonTermSet
+   structure T = Persimmon.TermSet
    structure M = Persimmon.SymMap
 
    val nullable = S.addList(S.empty, [X,Y])
 
    val nullableTests =
-       TGroup ("simple (3.12)",
-               [Case ("nullable", {actual=n, expect=nullable})
-                (* Case ("FIRST(X)", {actual= Option.valOf (M.find (fi, NonTerm X))} *)
-              ])
+       N.TGroup ("simple (3.12)",
+               [N.Case ("nullable", {actual=n, expect=nullable})])
+
+   local
+      fun first x = Option.getOpt (M.find (fi, NonTerm x), T.empty)
+      fun follow x = Option.getOpt (M.find (fo, NonTerm x), T.empty)
+      val t = T.fromList
+   in
+      val firstFollowTests =
+          F.TGroup ("simple (3.12)",
+                    [F.Case ("FIRST(X)", {actual = first X, expect = t [a,c]})
+                    ,F.Case ("FIRST(Y)", {actual = first Y, expect = t [c]})
+                    ,F.Case ("FIRST(Z)", {actual = first Z, expect = t [a,c,d]})
+
+                    ,F.Case ("FOLLOW(X)", {actual = follow X, expect = t [a,c,d]})
+                    ,F.Case ("FOLLOW(Y)", {actual = follow Y, expect = t [a,c,d]})
+                    ,F.Case ("FOLLOW(Z)", {actual = follow Z, expect = t []})
+                   ])
+   end
 in
-   fun doTests (_,_) = (runTests true nullableTests; 1)
+   fun doTests (_,_) = (N.runTests true nullableTests
+                       ; F.runTests true firstFollowTests
+                       ; 1)
 end
 
 end
