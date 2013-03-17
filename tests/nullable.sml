@@ -102,11 +102,6 @@ structure TermSetShow =
                    type t = TermSpec.term
                    val show = TermSpec.showTerm
                 end)
-structure TermSetEq: EQ =
-   struct
-      type t = Persimmon.TermSet.set
-      val eq = Persimmon.TermSet.equal
-   end
 
 local
    structure N = TestFn(structure Show = NonTermSetShow

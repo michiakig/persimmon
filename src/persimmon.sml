@@ -21,6 +21,11 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
 
       structure NonTermSet = ListSetFn(NonTermKey)
       structure TermSet = ListSetFn(TermKey)
+      structure TermSetEq: EQ =
+         struct
+            type t = TermSet.set
+            val eq = TermSet.equal
+         end
 
       structure SymKey: ORD_KEY =
          struct
@@ -32,6 +37,8 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
          end
 
       structure SymMap = ListMapFn(SymKey)
+      structure SymMapEq = MapEqFn(structure Map = SymMap
+                                   structure V = TermSetEq)
       structure TermSetShow = SetShowFn(structure Set = TermSet
                                         structure Show =
                                            struct
@@ -78,20 +85,6 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
             HigherOrder.fixedPoint (NonTermSet.empty, step, NonTermSet.equal)
          end
 
-      (* test two instances of FIRST or FOLLOW for equality *)
-      fun eq (x,y) =
-          if SymMap.numItems x <> SymMap.numItems y
-          then false
-          else
-             let
-                fun f (k,v) =
-                    case SymMap.find (y, k) of
-                        NONE => false
-                      | SOME v' => TermSet.compare (v, v') = EQUAL
-             in
-                List.all f (SymMap.listItemsi x)
-             end
-
       fun isNullable nullable (Term _) = false
         | isNullable nullable (NonTerm nt) = NonTermSet.member (nullable, nt)
 
@@ -131,7 +124,7 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
             fun step first = foldl forEachProd first prods
 
          in
-            HigherOrder.fixedPoint (init, step, eq)
+            HigherOrder.fixedPoint (init, step, SymMapEq.eq)
          end
 
       fun insertIntoFollow (first,follow,y,x) =
@@ -202,6 +195,6 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
                   foldl forEachProd follow prods)
 
           in
-             HigherOrder.fixedPoint (init, step, eq)
+             HigherOrder.fixedPoint (init, step, SymMapEq.eq)
           end
    end
