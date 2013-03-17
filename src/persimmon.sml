@@ -32,6 +32,29 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
          end
 
       structure SymMap = ListMapFn(SymKey)
+      structure TermSetShow = SetShowFn(structure Set = TermSet
+                                        structure Show =
+                                           struct
+                                              type t = TermSpec.term
+                                              val show = TermSpec.showTerm
+                                           end)
+
+      local
+         structure K =
+            struct
+               type t = TermSpec.symbol
+               val show = TermSpec.show
+            end
+         structure V =
+            struct
+               type t = TermSet.set
+               val show = TermSetShow.show
+            end
+      in
+         structure SymMapShow = MapShowFn(structure Map = SymMap
+                                          structure K = K
+                                          structure V = V)
+      end
 
       (* compute a set of NonTerms which can derive the empty string *)
       fun nullable prods =
@@ -123,29 +146,6 @@ functor PersimmonFn(TermSpec: TERM_SPEC) =
                  SymMap.insert (follow, y, TermSet.union (x', y'))
           end
 
-      structure TermSetShow = SetShowFn(structure Set = TermSet
-                                        structure Show =
-                                           struct
-                                              type t = TermSpec.term
-                                              val show = TermSpec.showTerm
-                                           end)
-
-      local
-         structure K =
-            struct
-               type t = TermSpec.symbol
-               val show = TermSpec.show
-            end
-         structure V =
-            struct
-               type t = TermSet.set
-               val show = TermSetShow.show
-            end
-      in
-         structure SymMapShow = MapShowFn(structure Map = SymMap
-                                          structure K = K
-                                          structure V = V)
-      end
 
       fun FOLLOW (nullable, first, prods) =
           let
