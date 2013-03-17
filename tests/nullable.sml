@@ -79,9 +79,9 @@ val grammar = [Z --> [\ d],
                X --> [\ a]]
 
 val terminals = [d, c, a]
-val n = nullable grammar (* NonTerm set *)
-val fi = FIRST (n, terminals, grammar) (* (Symbol, NonTerm set) map *)
-val fo = FOLLOW (n, fi, grammar) (* (Symbol, NonTerm set) map *)
+val n: NonTermSet.set = nullable grammar
+val fi: TermSet.set SymMap.map = FIRST (n, terminals, grammar)
+val fo: TermSet.set SymMap.map = FOLLOW (n, fi, grammar)
 
 structure NonTermSetShow = SetShowFn(structure Set = Persimmon.NonTermSet
                                      structure Show =
