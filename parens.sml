@@ -1,8 +1,8 @@
 (*
   S -> e
-  S -> T ( S ) S
-  T -> e
-  T -> ( S )
+  S -> R ( S ) S
+  R -> e
+  R -> ( S )
 *)
 
 datatype token = LParen | RParen
