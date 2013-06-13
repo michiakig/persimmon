@@ -1,9 +1,9 @@
 (* grammar:
 E  -> T E'
-E' -> + T E'
+E' -> + E
 E' ->
 T  -> F T'
-T' -> * F T'
+T' -> * T
 T' ->
 F  -> ( E )
 F  -> id
@@ -100,8 +100,8 @@ fun parse toks =
 
        fun expr () = (term (); expr' ())
        and term () = (factor (); term'())
-       and expr' () = if match L.Add then (next (); term (); expr'()) else ()
-       and term' () = if match L.Mul then (next (); factor (); term'()) else ()
+       and expr' () = if match L.Add then (next (); expr()) else ()
+       and term' () = if match L.Mul then (next (); term()) else ()
        and factor () = if match L.LParen
                           then (next ()
                                ; expr ()
