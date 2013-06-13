@@ -98,21 +98,40 @@ fun parse toks =
        fun match tok = has () andalso tok = peek ()
        fun err s = raise SyntaxError ("err " ^ s)
 
-       fun expr () = (term (); expr' ())
-       and term () = (factor (); term'())
-       and expr' () = if match L.Add then (next (); expr()) else ()
-       and term' () = if match L.Mul then (next (); term()) else ()
-       and factor () = if match L.LParen
-                          then (next ()
-                               ; expr ()
-                               ; if match L.RParen
-                                    then adv ()
-                                 else err ")")
-                       else if has () andalso isNum (peek ())
-                               then adv ()
-                            else err "digit"
+       fun expr () : ast = let val lhs = term ()
+                           in case expr' () of
+                              NONE => lhs
+                            | SOME rhs => Add (lhs, rhs)
+                           end
+
+       and term () : ast = let val lhs = factor ()
+                               val rhs = term'()
+                           in case rhs of
+                                  NONE => lhs
+                                | SOME rhs' => Mul (lhs, rhs')
+                           end
+
+       and expr' () : ast option =
+           if match L.Add then (next (); SOME (expr ())) else NONE
+
+       and term' () : ast option =
+           if match L.Mul then (next (); SOME (term ())) else NONE
+
+       and factor () : ast =
+           if match L.LParen
+              then (next ()
+                   ; let val ast = expr ()
+                     in if match L.RParen
+                           then (adv (); ast)
+                        else err ")"
+                     end)
+           else if has ()
+                then case next () of
+                         L.Num n => Num n
+                       | _ => err "digit"
+                else err "digit"
     in
-       expr () handle SyntaxError s => print ("SyntaxError: " ^ s ^ "\n")
+       expr ()
     end
 
 fun top s = parse (L.lex (String.explode s))
