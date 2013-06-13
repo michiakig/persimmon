@@ -101,21 +101,20 @@ fun parse toks =
        fun expr () : ast = let val lhs = term ()
                            in case expr' () of
                               NONE => lhs
-                            | SOME rhs => Add (lhs, rhs)
+                            | SOME (oper, rhs) => oper (lhs, rhs)
                            end
 
        and term () : ast = let val lhs = factor ()
-                               val rhs = term'()
-                           in case rhs of
+                           in case term'() of
                                   NONE => lhs
-                                | SOME rhs' => Mul (lhs, rhs')
+                                | SOME (oper, rhs) => oper (lhs, rhs)
                            end
 
-       and expr' () : ast option =
-           if match L.Add then (next (); SOME (expr ())) else NONE
+       and expr' () : ((ast * ast -> ast) * ast) option =
+           if match L.Add then (next (); SOME (Add, expr ())) else NONE
 
-       and term' () : ast option =
-           if match L.Mul then (next (); SOME (term ())) else NONE
+       and term' () : ((ast * ast -> ast) * ast) option =
+           if match L.Mul then (next (); SOME (Mul, term ())) else NONE
 
        and factor () : ast =
            if match L.LParen
