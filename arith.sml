@@ -17,16 +17,16 @@ datatype t = Num of int
            | RParen
            | Add
            | Mul
-           (* | Div *)
-           (* | Sub *)
+           | Div
+           | Sub
 
 fun show (Num n) = "Num " ^ Int.toString n
   | show LParen = "LParen"
   | show RParen = "RParen"
   | show Add = "Add"
   | show Mul = "Mul"
-  (* | show Div = "Div" *)
-  (* | show Sub = "Sub" *)
+  | show Div = "Div"
+  | show Sub = "Sub"
 
 local
 
@@ -55,9 +55,9 @@ in
 fun lex (#"(" :: rest) = LParen :: lex rest
   | lex (#")" :: rest) = RParen :: lex rest
   | lex (#"+" :: rest) = Add :: lex rest
-  (* | lex (#"-" :: rest) = Sub :: lex rest *)
+  | lex (#"-" :: rest) = Sub :: lex rest
   | lex (#"*" :: rest) = Mul :: lex rest
-  (* | lex (#"/" :: rest) = Div :: lex rest *)
+  | lex (#"/" :: rest) = Div :: lex rest
   | lex (all as c :: cs) =
     if Char.isDigit c
        then case getDigit all of
@@ -80,8 +80,8 @@ structure L = Lexer
 datatype ast = Num of int
              | Add of ast * ast
              | Mul of ast * ast
-             (* | Div of ast * ast *)
-             (* | Sub of ast * ast *)
+             | Div of ast * ast
+             | Sub of ast * ast
 
 fun isNum (L.Num _) = true
   | isNum _ = false
@@ -111,10 +111,20 @@ fun parse toks =
                            end
 
        and expr' () : ((ast * ast -> ast) * ast) option =
-           if match L.Add then (next (); SOME (Add, expr ())) else NONE
+           if has ()
+              then case peek () of
+                       L.Add => (next (); SOME (Add, expr ()))
+                     | L.Sub => (next (); SOME (Sub, expr ()))
+                     | _ => NONE
+           else NONE
 
        and term' () : ((ast * ast -> ast) * ast) option =
-           if match L.Mul then (next (); SOME (Mul, term ())) else NONE
+           if has ()
+              then case peek () of
+                       L.Mul => (next (); SOME (Div, expr ()))
+                     | L.Div => (next (); SOME (Div, expr ()))
+                     | _ => NONE
+           else NONE
 
        and factor () : ast =
            if match L.LParen
