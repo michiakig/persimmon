@@ -97,13 +97,6 @@ fun isNum (L.Num _) = true
 exception SyntaxError of string
 fun parse toks =
     let
-       val idx = ref 0
-       val arr = Array.fromList toks
-       fun has () = !idx < Array.length arr
-       fun adv () = idx := !idx + 1
-       fun next () = Array.sub (arr, !idx) before adv ()
-       fun peek () = Array.sub (arr, !idx)
-       fun match tok = has () andalso tok = peek ()
        fun error s = raise SyntaxError s
        val debug = false
        fun log (s, []) = if debug then print (s ^ "(..)\n") else ()
