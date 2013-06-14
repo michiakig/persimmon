@@ -101,36 +101,50 @@ fun parse toks =
        fun peek () = Array.sub (arr, !idx)
        fun match tok = has () andalso tok = peek ()
        fun err s = raise SyntaxError ("err " ^ s)
+       val debug = true
+       fun log s =
+           let val t = if has () then L.show (peek ()) else ".."
+           in if debug
+                 then print (s ^ "(" ^ t ^ ")\n")
+              else ()
+           end
 
-       fun expr () : ast = let val lhs = term ()
-                           in case expr' () of
-                              NONE => lhs
-                            | SOME (oper, rhs) => oper (lhs, rhs)
-                           end
+       fun expr () : ast =
+           (log "expr";
+            let val lhs = term ()
+            in case expr' () of
+                   NONE => lhs
+                 | SOME (oper, rhs) => oper (lhs, rhs)
+            end)
 
-       and term () : ast = let val lhs = factor ()
-                           in case term'() of
-                                  NONE => lhs
-                                | SOME (oper, rhs) => oper (lhs, rhs)
-                           end
+       and term () : ast =
+           (log "term";
+            let val lhs = factor ()
+            in case term'() of
+                   NONE => lhs
+                 | SOME (oper, rhs) => oper (lhs, rhs)
+            end)
 
        and expr' () : ((ast * ast -> ast) * ast) option =
+           (log "expr'";
            if has ()
               then case peek () of
                        L.Add => (next (); SOME (Add, expr ()))
                      | L.Sub => (next (); SOME (Sub, expr ()))
                      | _ => NONE
-           else NONE
+           else NONE)
 
        and term' () : ((ast * ast -> ast) * ast) option =
+           (log "term'";
            if has ()
               then case peek () of
                        L.Mul => (next (); SOME (Mul, expr ()))
                      | L.Div => (next (); SOME (Div, expr ()))
                      | _ => NONE
-           else NONE
+           else NONE)
 
        and factor () : ast =
+           (log "factor";
            if match L.LParen
               then (next ()
                    ; let val ast = expr ()
@@ -142,7 +156,7 @@ fun parse toks =
                 then case next () of
                          L.Num n => Num n
                        | _ => err "digit"
-                else err "digit"
+                else err "digit")
     in
        expr ()
     end
