@@ -107,7 +107,7 @@ fun parse toks =
        fun peek () = Array.sub (arr, !idx)
        fun match tok = has () andalso tok = peek ()
        fun err s = raise SyntaxError ("err " ^ s)
-       val debug = true
+       val debug = false
        fun log s =
            let val t = if has () then L.show (peek ()) else ".."
            in if debug
@@ -144,8 +144,8 @@ fun parse toks =
            (log "term'";
            if has ()
               then case peek () of
-                       L.Mul => (next (); SOME (Mul, expr ()))
-                     | L.Div => (next (); SOME (Div, expr ()))
+                       L.Mul => (next (); SOME (Mul, term ()))
+                     | L.Div => (next (); SOME (Div, term ()))
                      | _ => NONE
            else NONE)
 
