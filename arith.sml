@@ -95,9 +95,6 @@ fun show (Num n) = "Num " ^ (Int.toString n)
   | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
 
-fun isNum (L.Num _) = true
-  | isNum _ = false
-
 exception SyntaxError of string
 fun parse toks =
     let
