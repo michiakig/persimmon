@@ -168,18 +168,19 @@ end
 
 structure Tests =
 struct
-open Parser
-val p = parse o Lexer.lex
+structure P = Parser
+structure L = Lexer
+val p = P.parse o L.lex
 val tests = Test.group ("parse",
-                         Test.polyEq {show = show},
+                         Test.polyEq {show = P.show},
 [
-fn _ => {expected = (Num 0),                          actual = p "0"}
-,fn _ => {expected = Add (Num 1, Num 2),              actual = p "1 + 2"}
-,fn _ => {expected = Add (Mul (Num 1, Num 2), Num 3), actual = p "1 * 2 + 3"}
-,fn _ => {expected = Sub (Num 1, Div (Num 2, Num 3)), actual = p "1 - 2 / 3"}
-,fn _ => {expected = Mul (Sub (Num 1, Num 2), Num 3), actual = p "(1 - 2) * 3"}
-,fn _ => {expected = Mul (Sub (Num 1, Num 2), Num 3), actual = p "(1 - 2) * (3)"}
-,fn _ => {expected = Sub (Add (Sub (Num 1, Num 2), Num 3), Num 4),
+fn _ => {expected = (P.Num 0),                                  actual = p "0"}
+,fn _ => {expected = P.Add (P.Num 1, P.Num 2),                  actual = p "1 + 2"}
+,fn _ => {expected = P.Add (P.Mul (P.Num 1, P.Num 2), P.Num 3), actual = p "1 * 2 + 3"}
+,fn _ => {expected = P.Sub (P.Num 1, P.Div (P.Num 2, P.Num 3)), actual = p "1 - 2 / 3"}
+,fn _ => {expected = P.Mul (P.Sub (P.Num 1, P.Num 2), P.Num 3), actual = p "(1 - 2) * 3"}
+,fn _ => {expected = P.Mul (P.Sub (P.Num 1, P.Num 2), P.Num 3), actual = p "(1 - 2) * (3)"}
+,fn _ => {expected = P.Sub (P.Add (P.Sub (P.Num 1, P.Num 2), P.Num 3), P.Num 4),
           actual = p "1 - 2 + 3 - 4"}
 ])
 fun main _ = (Test.runTestSuite (true, tests);
