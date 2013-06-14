@@ -171,7 +171,7 @@ struct
 structure P = Parser
 structure L = Lexer
 val p = P.parse o L.lex
-val tests = Test.group ("parse",
+val parser = Test.group ("parser",
                          Test.polyEq {show = P.show},
 [
 fn _ => {expected = (P.Num 0),                                  actual = p "0"}
@@ -183,7 +183,12 @@ fn _ => {expected = (P.Num 0),                                  actual = p "0"}
 ,fn _ => {expected = P.Sub (P.Add (P.Sub (P.Num 1, P.Num 2), P.Num 3), P.Num 4),
           actual = p "1 - 2 + 3 - 4"}
 ])
-fun main _ = (Test.runTestSuite (true, tests);
+val lexer = Test.group ("lexer",
+                        Test.polyEq {show = Show.list L.show},
+[
+fn _ => {expected = [L.Num 0],                                  actual = L.lex "0"}
+])
+fun main _ = (Test.runTestSuite (true, Test.concat [lexer, parser]);
               OS.Process.success)
 
 end

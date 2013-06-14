@@ -4,6 +4,7 @@ Library
     structure Tests
 is
     arith.sml
+    ../lib.sml/lib.cm
     ../tests.sml/framework.cm
     $/basis.cm
     $/smlnj-lib.cm
