@@ -1,12 +1,14 @@
 (* grammar:
-E  -> T E'
-E' -> + E
-E' ->
-T  -> F T'
-T' -> * T
-T' ->
-F  -> ( E )
-F  -> id
+expr   -> term expr'
+expr'  -> + expr
+expr'  -> - expr
+expr'  ->
+term   -> factor term'
+term'  -> * term
+term'  -> / term
+term'  ->
+factor -> ( expr )
+factor -> id
 *)
 
 structure Lexer =
@@ -83,6 +85,12 @@ datatype ast = Num of int
              | Div of ast * ast
              | Sub of ast * ast
 
+fun show (Num n) = "Num n"
+  | show (Add (lhs, rhs)) = "Add (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (Sub (lhs, rhs)) = "Sub (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
+
 fun isNum (L.Num _) = true
   | isNum _ = false
 
@@ -96,53 +104,68 @@ fun parse toks =
        fun next () = Array.sub (arr, !idx) before adv ()
        fun peek () = Array.sub (arr, !idx)
        fun match tok = has () andalso tok = peek ()
-       fun err s = raise SyntaxError ("err " ^ s)
+       fun error s = raise SyntaxError s
+       val debug = false
+       fun log (s, []) = if debug then print (s ^ "(..)\n") else ()
+         | log (s, t :: ts) = if debug then print (s ^ "(" ^ L.show t ^ ")\n") else ()
 
-       fun expr () : ast = let val lhs = term ()
-                           in case expr' () of
-                              NONE => lhs
-                            | SOME (oper, rhs) => oper (lhs, rhs)
-                           end
+       fun expr (toks : L.t list) : (ast * L.t list) =
+           (log ("expr", toks);
+            let
+               val (lhs, rest) = term toks
+            in
+               case expr' rest of
+                   (NONE, rest') => (lhs, rest')
+                 | (SOME (oper, rhs), rest') => (oper (lhs, rhs), rest')
+            end)
 
-       and term () : ast = let val lhs = factor ()
-                           in case term'() of
-                                  NONE => lhs
-                                | SOME (oper, rhs) => oper (lhs, rhs)
-                           end
+       and term (toks : L.t list) : (ast * L.t list) =
+           (log ("term", toks);
+            let
+               val (lhs, rest) = factor toks
+            in
+               case term' rest of
+                   (NONE, rest') => (lhs, rest')
+                 | (SOME (oper, rhs), rest') => (oper (lhs, rhs), rest')
+            end)
 
-       and expr' () : ((ast * ast -> ast) * ast) option =
-           if has ()
-              then case peek () of
-                       L.Add => (next (); SOME (Add, expr ()))
-                     | L.Sub => (next (); SOME (Sub, expr ()))
-                     | _ => NONE
-           else NONE
+       and expr' toks : (((ast * ast -> ast) * ast) option * L.t list) =
+           (log ("expr'", toks);
+            let
+               fun cont oper (rhs, rest') = (SOME (oper, rhs), rest')
+            in
+               case toks of
+                   L.Add :: rest => cont Add (expr rest)
+                 | L.Sub :: rest => cont Sub (expr rest)
+                 (* | tok :: rest => error ("(expr') unexpected " ^ L.show tok) *)
+                 | _ => (NONE, toks)
+            end)
 
-       and term' () : ((ast * ast -> ast) * ast) option =
-           if has ()
-              then case peek () of
-                       L.Mul => (next (); SOME (Mul, expr ()))
-                     | L.Div => (next (); SOME (Div, expr ()))
-                     | _ => NONE
-           else NONE
+       and term' toks : (((ast * ast -> ast) * ast) option * L.t list) =
+           (log ("term'", toks);
+           let
+              fun cont oper (rhs, rest') = (SOME (oper, rhs), rest')
+           in
+              case toks of
+                  L.Mul :: rest => cont Mul (term rest)
+                | L.Div :: rest => cont Div (term rest)
+                (* | tok :: rest => error ("(term') unexpected " ^ L.show tok) *)
+                | _ => (NONE, toks)
+           end)
 
-       and factor () : ast =
-           if match L.LParen
-              then (next ()
-                   ; let val ast = expr ()
-                     in if match L.RParen
-                           then (adv (); ast)
-                        else err ")"
-                     end)
-           else if has ()
-                then case next () of
-                         L.Num n => Num n
-                       | _ => err "digit"
-                else err "digit"
+       and factor (toks : L.t list) : ast * L.t list =
+           (log ("factor", toks);
+            case toks of
+                L.LParen :: rest => (case expr rest of
+                                         (ast, L.RParen :: rest') => (ast, rest')
+                                       | _ => error "(factor) expected ')'")
+              | (L.Num n) :: rest => (Num n, rest)
+              | _ => error "(factor) expected digit")
     in
-       expr ()
+       case expr toks of
+           (ast, []) => ast
+         | (_, rest) => raise (SyntaxError ("incomplete parse: " ^
+                                            (String.concatWith "," (map L.show rest))))
     end
-
-fun top s = parse (L.lex (String.explode s))
 
 end
