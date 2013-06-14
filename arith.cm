@@ -1,0 +1,9 @@
+Library
+    structure Lexer
+    structure Parser
+    structure Tests
+is
+    arith.sml
+    ../tests.sml/framework.cm
+    $/basis.cm
+    $/smlnj-lib.cm

@@ -105,7 +105,7 @@ fun parse toks =
        fun peek () = Array.sub (arr, !idx)
        fun match tok = has () andalso tok = peek ()
        fun err s = raise SyntaxError ("err " ^ s)
-       val debug = true
+       val debug = false
        fun log s =
            let val t = if has () then L.show (peek ()) else ".."
            in if debug
@@ -164,5 +164,26 @@ fun parse toks =
     in
        expr ()
     end
+
+end
+
+structure Tests =
+struct
+open Parser
+val p = parse o Lexer.lex
+val tests = Test.group ("parse",
+                         Test.polyEq {show = show},
+[
+fn _ => {expected = (Num 0),                          actual = p "0"}
+,fn _ => {expected = Add (Num 1, Num 2),              actual = p "1 + 2"}
+,fn _ => {expected = Add (Mul (Num 1, Num 2), Num 3), actual = p "1 * 2 + 3"}
+,fn _ => {expected = Sub (Num 1, Div (Num 2, Num 3)), actual = p "1 - 2 / 3"}
+,fn _ => {expected = Mul (Sub (Num 1, Num 2), Num 3), actual = p "(1 - 2) * 3"}
+,fn _ => {expected = Mul (Sub (Num 1, Num 2), Num 3), actual = p "(1 - 2) * (3)"}
+,fn _ => {expected = Sub (Add (Sub (Num 1, Num 2), Num 3), Num 4),
+          actual = p "1 - 2 + 3 - 4"}
+])
+fun main _ = (Test.runTestSuite (true, tests);
+              OS.Process.success)
 
 end
