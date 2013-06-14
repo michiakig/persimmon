@@ -87,6 +87,12 @@ datatype ast = Num of int
              | Div of ast * ast
              | Sub of ast * ast
 
+fun show (Num n) = "Num " ^ Int.toString n
+  | show (Add (lhs, rhs)) = "Add (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (Sub (lhs, rhs)) = "Sub (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
+
 fun isNum (L.Num _) = true
   | isNum _ = false
 
