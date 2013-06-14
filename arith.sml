@@ -96,13 +96,12 @@ fun show (Num n) = "Num " ^ Int.toString n
 exception SyntaxError of string
 fun parse toks =
     let
-       val idx = ref 0
-       val arr = Array.fromList toks
-       fun has () = !idx < Array.length arr
-       fun adv () = idx := !idx + 1
-       fun next () = Array.sub (arr, !idx) before adv ()
+       val rest = ref toks
+       fun has () = not (null (!rest))
+       fun adv () = rest := tl (!rest)
+       fun next () = hd (!rest) before adv ()
        fun getNext () = if has () then SOME (next ()) else NONE
-       fun peek () = Array.sub (arr, !idx)
+       fun peek () = hd (!rest)
        fun match tok = has () andalso tok = peek ()
        fun err s = raise SyntaxError ("err " ^ s)
        val debug = false
