@@ -121,7 +121,7 @@ fun parse toks =
        and term' () : ((ast * ast -> ast) * ast) option =
            if has ()
               then case peek () of
-                       L.Mul => (next (); SOME (Div, expr ()))
+                       L.Mul => (next (); SOME (Mul, expr ()))
                      | L.Div => (next (); SOME (Div, expr ()))
                      | _ => NONE
            else NONE
