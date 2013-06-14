@@ -54,23 +54,27 @@ exception LexicalError of string
 
 in
 
-fun lex (#"(" :: rest) = LParen :: lex rest
-  | lex (#")" :: rest) = RParen :: lex rest
-  | lex (#"+" :: rest) = Add :: lex rest
-  | lex (#"-" :: rest) = Sub :: lex rest
-  | lex (#"*" :: rest) = Mul :: lex rest
-  | lex (#"/" :: rest) = Div :: lex rest
-  | lex (all as c :: cs) =
-    if Char.isDigit c
-       then case getDigit all of
-                (SOME n, rest) => (Num n) :: lex rest
-              | (NONE, _) =>
-                raise LexicalError ("error lexing num: " ^ String.implode all)
-    else if Char.isSpace c
-            then lex cs
-         else raise LexicalError ("unknown char: " ^ Char.toString c)
-  | lex [] = []
-
+fun lex (s : string) : t list =
+    let
+       fun lex' acc (#"(" :: rest) = lex' (LParen :: acc) rest
+         | lex' acc (#")" :: rest) = lex' (RParen :: acc) rest
+         | lex' acc (#"+" :: rest) = lex' (Add :: acc) rest
+         | lex' acc (#"-" :: rest) = lex' (Sub :: acc) rest
+         | lex' acc (#"*" :: rest) = lex' (Mul :: acc) rest
+         | lex' acc (#"/" :: rest) = lex' (Div :: acc) rest
+         | lex' acc (all as c :: cs) =
+           if Char.isDigit c
+              then case getDigit all of
+                       (SOME n, rest) => lex' ((Num n) :: acc) rest
+                     | (NONE, _) =>
+                       raise LexicalError ("error lexing num: " ^ String.implode all)
+           else if Char.isSpace c
+                   then lex' acc cs
+                else raise LexicalError ("unknown char: " ^ Char.toString c)
+         | lex' acc [] = rev acc
+    in
+       lex' [] (String.explode s)
+    end
 end
 end
 
