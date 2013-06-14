@@ -147,6 +147,4 @@ fun parse toks =
        expr ()
     end
 
-fun top s = parse (L.lex (String.explode s))
-
 end
