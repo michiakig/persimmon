@@ -107,12 +107,15 @@ datatype ast = Num of int
              | Mul of ast * ast
              | Div of ast * ast
              | Sub of ast * ast
+             | If of ast * ast * ast
 
 fun show (Num n) = "Num " ^ Int.toString n
+  | show (Id s) = "Id " ^ s
   | show (Add (lhs, rhs)) = "Add (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Sub (lhs, rhs)) = "Sub (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (If (e1, e2, e3)) = "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
 
 exception SyntaxError of string
 fun parse toks =
@@ -135,11 +138,21 @@ fun parse toks =
 
        fun expr () : ast =
            (log "expr";
-            let
-               val lhs = term ()
-            in
-               expr' lhs
-            end)
+            case peek () of
+                L.If =>
+                (adv ()
+                ; let val e1 = expr ()
+                  in case peek () of
+                         L.Then => (adv ()
+                                   ; let val e2 = expr ()
+                                     in case peek () of
+                                            L.Else => (adv ()
+                                                      ; If (e1, e2, expr ()))
+                                          | _ => err "expected 'else'"
+                                     end)
+                       | _ => err "expected 'then'"
+                  end)
+              | _ => expr' (term ()))
 
        and term () : ast =
            (log "term";
