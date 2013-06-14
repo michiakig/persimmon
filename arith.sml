@@ -1,9 +1,9 @@
 (* grammar:
 expr   -> term expr'
-expr'  -> + expr
+expr'  -> + term expr'
 expr'  ->
 term   -> factor term'
-term'  -> * term
+term'  -> * factor term'
 term'  ->
 factor -> ( expr )
 factor -> id
@@ -104,10 +104,11 @@ fun parse toks =
        fun has () = !idx < Array.length arr
        fun adv () = idx := !idx + 1
        fun next () = Array.sub (arr, !idx) before adv ()
+       fun getNext () = if has () then SOME (next ()) else NONE
        fun peek () = Array.sub (arr, !idx)
        fun match tok = has () andalso tok = peek ()
        fun err s = raise SyntaxError ("err " ^ s)
-       val debug = false
+       val debug = true
        fun log s =
            let val t = if has () then L.show (peek ()) else ".."
            in if debug
@@ -117,37 +118,37 @@ fun parse toks =
 
        fun expr () : ast =
            (log "expr";
-            let val lhs = term ()
-            in case expr' () of
-                   NONE => lhs
-                 | SOME (oper, rhs) => oper (lhs, rhs)
+            let
+               val lhs = term ()
+            in
+               expr' lhs
             end)
 
        and term () : ast =
            (log "term";
-            let val lhs = factor ()
-            in case term'() of
-                   NONE => lhs
-                 | SOME (oper, rhs) => oper (lhs, rhs)
+            let
+               val lhs = factor ()
+            in
+               term' lhs
             end)
 
-       and expr' () : ((ast * ast -> ast) * ast) option =
+       and expr' (lhs : ast) : ast =
            (log "expr'";
            if has ()
               then case peek () of
-                       L.Add => (next (); SOME (Add, expr ()))
-                     | L.Sub => (next (); SOME (Sub, expr ()))
-                     | _ => NONE
-           else NONE)
+                       L.Add => (next (); expr' (Add (lhs, term ())))
+                     | L.Sub => (next (); expr' (Sub (lhs, term ())))
+                     | _ => lhs
+           else lhs)
 
-       and term' () : ((ast * ast -> ast) * ast) option =
+       and term' (lhs : ast) : ast =
            (log "term'";
            if has ()
               then case peek () of
-                       L.Mul => (next (); SOME (Mul, term ()))
-                     | L.Div => (next (); SOME (Div, term ()))
-                     | _ => NONE
-           else NONE)
+                       L.Mul => (next (); term' (Mul (lhs, factor ())))
+                     | L.Div => (next (); term' (Div (lhs, factor ())))
+                     | _ => lhs
+           else lhs)
 
        and factor () : ast =
            (log "factor";
