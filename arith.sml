@@ -1,12 +1,12 @@
 (* grammar:
-E  -> T E'
-E' -> + E
-E' ->
-T  -> F T'
-T' -> * T
-T' ->
-F  -> ( E )
-F  -> id
+expr   -> term expr'
+expr'  -> + expr
+expr'  ->
+term   -> factor term'
+term'  -> * term
+term'  ->
+factor -> ( expr )
+factor -> id
 *)
 
 structure Lexer =
