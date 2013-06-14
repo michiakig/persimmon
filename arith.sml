@@ -89,7 +89,7 @@ datatype ast = Num of int
              | Div of ast * ast
              | Sub of ast * ast
 
-fun show (Num n) = "Num n"
+fun show (Num n) = "Num " ^ (Int.toString n)
   | show (Add (lhs, rhs)) = "Add (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Sub (lhs, rhs)) = "Sub (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
