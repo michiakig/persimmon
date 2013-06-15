@@ -1,6 +1,7 @@
 (* grammar:
 expr   -> term expr'
 expr   -> if expr then expr else expr
+expr   -> fn id => expr
 expr'  -> + term expr'
 expr'  ->
 term   -> factor term'
@@ -27,6 +28,8 @@ datatype t = Num of int
            | If
            | Else
            | Then
+           | Fn
+           | Arrow
 
 fun show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
@@ -40,6 +43,8 @@ fun show (Num n) = "Num " ^ Int.toString n
   | show If = "If"
   | show Else = "Else"
   | show Then = "Then"
+  | show Fn = "Fn"
+  | show Arrow = "Arrow"
 
 local
 
@@ -63,7 +68,13 @@ fun getDigit chars =
 
 fun getWord chars =
     let
-       val (word, rest) = takeWhile Char.isAlphaNum chars
+       fun notDelim #"+" = false
+         | notDelim #"-" = false
+         | notDelim #"*" = false
+         | notDelim #"/" = false
+         | notDelim #"=" = false
+         | notDelim ch = not (Char.isSpace ch)
+       val (word, rest) = takeWhile notDelim chars
     in
        (String.implode word, rest)
     end
@@ -80,6 +91,7 @@ fun lex (s : string) : t list =
          | lex' acc (#"-" :: rest) = lex' (Sub :: acc) rest
          | lex' acc (#"*" :: rest) = lex' (Mul :: acc) rest
          | lex' acc (#"/" :: rest) = lex' (Div :: acc) rest
+         | lex' acc (#"=" :: #">" :: rest) = lex' (Arrow :: acc) rest
          | lex' acc (all as c :: cs) =
            if Char.isDigit c
               then case getDigit all of
@@ -94,6 +106,9 @@ fun lex (s : string) : t list =
                        | ("else", rest) => lex' (Else :: acc) rest
                        | ("true", rest) => lex' (Bool true :: acc) rest
                        | ("false", rest) => lex' (Bool false :: acc) rest
+                       | ("fn", rest) => lex' (Fn :: acc) rest
+                       | ("", _) =>
+                         raise LexicalError ("error lexing: " ^ String.implode all)
                        | (id, rest) => lex' ((Id id) :: acc) rest)
          | lex' acc [] = rev acc
     in
@@ -115,6 +130,7 @@ datatype ast = Num of int
              | Div of ast * ast
              | Sub of ast * ast
              | If of ast * ast * ast
+             | Fn of string * ast
 
 fun show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
@@ -124,6 +140,7 @@ fun show (Num n) = "Num " ^ Int.toString n
   | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (If (e1, e2, e3)) = "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
+  | show (Fn (x, e)) = "Fn (" ^ x ^ "," ^ show e ^ ")"
 
 exception SyntaxError of string
 fun parse toks =
@@ -160,6 +177,14 @@ fun parse toks =
                                      end)
                        | _ => err "expected 'then'"
                   end)
+              | L.Fn =>
+                (adv ()
+                ; case peek () of
+                      L.Id x => (adv ()
+                                ; case peek () of
+                                      L.Arrow => (adv (); Fn (x, expr ()))
+                                    | t => err ("expected =>, got " ^ L.show t))
+                    | t => err ("expected formal arg in fn expr, got " ^ L.show t))
               | _ => expr' (term ()))
 
        and term () : ast =
@@ -228,11 +253,19 @@ fn _ => {expected = (P.Num 0),                                  actual = p "0"}
 ,fn _ => {expected = P.Div (P.Sub (P.Id "bar", P.Num 2), P.Id "foo"), actual = p "(bar - 2) / foo"}
 ,fn _ => {expected = P.Sub (P.Add (P.Sub (P.Num 1, P.Num 2), P.Num 3), P.Num 4),
           actual = p "1 - 2 + 3 - 4"}
+
+,fn _ => {expected = P.Fn ("x", P.Id "x"), actual = p "fn x=>x"}
+,fn _ => {expected = P.Fn ("x", P.Fn ("y", P.Id "y")), actual = p "fn x => fn y => y"}
+,fn _ => {expected = P.Fn ("x", P.Add (P.Id "x", P.Id "x")), actual = p "fn x => x + x"}
+,fn _ => {expected = P.Fn ("x", P.Add (P.Id "x", P.Id "x")), actual = p "fn x=>x+x"}
+
 ])
 val lexer = Test.group ("lexer",
                         Test.polyEq {show = Show.list L.show},
 [
 fn _ => {expected = [L.Num 0],                                  actual = L.lex "0"}
+,fn _ => {expected = [L.Fn, L.Id "x", L.Arrow, L.Id "x"],        actual = L.lex "fn x=>x"}
+,fn _ => {expected = [L.Fn, L.Id "x", L.Arrow, L.Id "x"],        actual = L.lex "fn x => x"}
 ,fn _ => {expected = [L.If, L.Num 1, L.Then, L.Num 2, L.Else, L.Num 3], actual = L.lex "if 1 then 2 else 3"}
 ,fn _ => {expected = [L.If, L.Id "foo", L.Then, L.Id "bar", L.Else, L.Id "baz"], actual = L.lex "if foo then bar else baz"}
 ])
