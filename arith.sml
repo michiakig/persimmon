@@ -8,6 +8,8 @@ term'  -> * factor term'
 term'  ->
 factor -> ( expr )
 factor -> id
+factor -> num
+factor -> bool
 *)
 
 structure Lexer =
@@ -15,6 +17,7 @@ struct
 
 datatype t = Num of int
            | Id of string
+           | Bool of bool
            | LParen
            | RParen
            | Add
@@ -26,6 +29,7 @@ datatype t = Num of int
            | Then
 
 fun show (Num n) = "Num " ^ Int.toString n
+  | show (Bool b) = "Bool " ^ Bool.toString b
   | show (Id s) = "Id " ^ s
   | show LParen = "LParen"
   | show RParen = "RParen"
@@ -88,6 +92,8 @@ fun lex (s : string) : t list =
                          ("if", rest) => lex' (If :: acc) rest
                        | ("then", rest) => lex' (Then :: acc) rest
                        | ("else", rest) => lex' (Else :: acc) rest
+                       | ("true", rest) => lex' (Bool true :: acc) rest
+                       | ("false", rest) => lex' (Bool false :: acc) rest
                        | (id, rest) => lex' ((Id id) :: acc) rest)
          | lex' acc [] = rev acc
     in
@@ -102,6 +108,7 @@ struct
 structure L = Lexer
 
 datatype ast = Num of int
+             | Bool of bool
              | Id of string
              | Add of ast * ast
              | Mul of ast * ast
@@ -110,6 +117,7 @@ datatype ast = Num of int
              | If of ast * ast * ast
 
 fun show (Num n) = "Num " ^ Int.toString n
+  | show (Bool b) = "Bool " ^ Bool.toString b
   | show (Id s) = "Id " ^ s
   | show (Add (lhs, rhs)) = "Add (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Sub (lhs, rhs)) = "Sub (" ^ show lhs ^ "," ^ show rhs ^ ")"
@@ -192,9 +200,10 @@ fun parse toks =
            else if has ()
                 then case next () of
                          L.Num n => Num n
+                       | L.Bool s => Bool s
                        | L.Id s => Id s
-                       | _ => err "digit"
-                else err "digit")
+                       | _ => err "expected bool, num or id"
+                else err "expected bool, num or id")
     in
        expr ()
     end
