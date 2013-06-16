@@ -290,7 +290,7 @@ struct
 structure P = Parser
 structure L = Lexer
 val p = P.parse o L.lex
-val parser = Test.group ("parser",
+val expr = Test.group ("expr",
                          Test.polyEq {show = P.show},
 [
 fn _ => {expected = (P.Num 0),                                  actual = p "0"}
@@ -303,18 +303,30 @@ fn _ => {expected = (P.Num 0),                                  actual = p "0"}
 ,fn _ => {expected = P.Div (P.Sub (P.Id "bar", P.Num 2), P.Id "foo"), actual = p "(bar - 2) / foo"}
 ,fn _ => {expected = P.Sub (P.Add (P.Sub (P.Num 1, P.Num 2), P.Num 3), P.Num 4),
           actual = p "1 - 2 + 3 - 4"}
+])
 
-,fn _ => {expected = P.Fn ("x", P.Id "x"), actual = p "fn x=>x"}
+val fns = Test.group ("fns",
+                      Test.polyEq {show = P.show},
+[
+fn _ => {expected = P.Fn ("x", P.Id "x"), actual = p "fn x=>x"}
 ,fn _ => {expected = P.Fn ("x", P.Fn ("y", P.Id "y")), actual = p "fn x => fn y => y"}
 ,fn _ => {expected = P.Fn ("x", P.Add (P.Id "x", P.Id "x")), actual = p "fn x => x + x"}
 ,fn _ => {expected = P.Fn ("x", P.Add (P.Id "x", P.Id "x")), actual = p "fn x=>x+x"}
+])
 
-,fn _ => {expected = P.Num 1, actual = p "(1)"}
+val parens = Test.group ("parens",
+                      Test.polyEq {show = P.show},
+[
+fn _ => {expected = P.Num 1, actual = p "(1)"}
 ,fn _ => {expected = P.Id "x", actual = p "(x)"}
 ,fn _ => {expected = P.Bool true, actual = p "(true)"}
 ,fn _ => {expected = P.If (P.Bool true, P.Id "x", P.Id "y"), actual = p "if (true) then (x) else ((y))"}
+])
 
-,fn _ => {expected = P.App (P.Id "x", P.Id "y"), actual = p "x y"}
+val app = Test.group ("app",
+                      Test.polyEq {show = P.show},
+[
+fn _ => {expected = P.App (P.Id "x", P.Id "y"), actual = p "x y"}
 ,fn _ => {expected = P.App (P.Id "x", P.Id "y"), actual = p "(x y)"}
 ,fn _ => {expected = P.App (P.Fn ("x", P.Id "x"), P.Num 1), actual = p "(fn x => x) 1"}
 ,fn _ => {expected = P.Fn ("f", P.App (P.Id "f", P.Num 1)), actual = p "(fn f => f 1)"}
@@ -322,8 +334,8 @@ fn _ => {expected = (P.Num 0),                                  actual = p "0"}
 ,fn _ => {expected = P.If (P.Bool true, P.App (P.Id "not", P.Bool false), P.Bool true), actual = p "if true then not false else true"}
 ,fn _ => {expected = P.If (P.Bool true, P.Bool false, P.App (P.Id "not", P.Bool true)), actual = p "if true then false else not true"}
 ,fn _ => {expected = P.Let ("f", P.Fn ("x", P.Id "x"), P.App (P.Id "f", P.Num 1)), actual = p "let f = fn x => x in f 1"}
-
 ])
+
 val lexer = Test.group ("lexer",
                         Test.polyEq {show = Show.list L.show},
 [
@@ -335,7 +347,7 @@ fn _ => {expected = [L.Num 0],                                  actual = L.lex "
 ,fn _ => {expected = [L.Let, L.Id "x", L.Eq, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"], actual = L.lex "let x = 0 in x + x"}
 ,fn _ => {expected = [L.Let, L.Id "x", L.Eq, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"], actual = L.lex "let x=0 in x + x"}
 ])
-fun main _ = (Test.runTestSuite (true, Test.concat [lexer, parser]);
+fun main _ = (Test.runTestSuite (true, Test.concat [lexer, expr, fns, parens, app]);
               OS.Process.success)
 
 end
