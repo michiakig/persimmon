@@ -1,4 +1,7 @@
 (* grammar:
+exprs  -> expr exprs'
+exprs' -> expr exprs'
+exprs' ->
 expr   -> term expr'
 expr   -> if expr then expr else expr
 expr   -> fn id => expr
@@ -141,6 +144,7 @@ datatype ast = Num of int
              | Mul of ast * ast
              | Div of ast * ast
              | Sub of ast * ast
+             | App of ast * ast
              | If of ast * ast * ast
              | Fn of string * ast
              | Let of string * ast * ast
@@ -152,6 +156,7 @@ fun show (Num n) = "Num " ^ Int.toString n
   | show (Sub (lhs, rhs)) = "Sub (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Mul (lhs, rhs)) = "Mul (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
+  | show (App (e1, e2)) = "App (" ^ show e1 ^ "," ^ show e2 ^ ")"
   | show (If (e1, e2, e3)) = "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
   | show (Fn (x, e)) = "Fn (" ^ x ^ "," ^ show e ^ ")"
   | show (Let (x, e1, e2)) = "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
@@ -181,13 +186,13 @@ fun parse toks =
             case peek () of
                 L.If =>
                 (adv ()
-                ; let val e1 = expr ()
+                ; let val e1 = exprs ()
                   in case peek () of
                          L.Then => (adv ()
-                                   ; let val e2 = expr ()
+                                   ; let val e2 = exprs ()
                                      in case peek () of
                                             L.Else => (adv ()
-                                                      ; If (e1, e2, expr ()))
+                                                      ; If (e1, e2, exprs ()))
                                           | t => expected "else" t
                                      end)
                        | t => expected "then" t
@@ -197,7 +202,7 @@ fun parse toks =
                 ; case peek () of
                       L.Id x => (adv ()
                                 ; case peek () of
-                                      L.Arrow => (adv (); Fn (x, expr ()))
+                                      L.Arrow => (adv (); Fn (x, exprs ()))
                                     | t => expected "=>" t)
                     | t => err ("expected formal arg in fn expr, got " ^ L.show t))
               | L.Let =>
@@ -206,9 +211,9 @@ fun parse toks =
                       L.Id x => (adv ()
                                 ; case peek () of
                                       L.Eq => (adv ()
-                                              ; let val bound = expr ()
+                                              ; let val bound = exprs ()
                                                 in case peek () of
-                                                       L.In => (adv (); Let (x, bound, expr ()))
+                                                       L.In => (adv (); Let (x, bound, exprs ()))
                                                      | t => expected "in" t
                                                 end)
                                     | t => expected "=" t)
@@ -244,7 +249,7 @@ fun parse toks =
        and factor () : ast =
            (log "factor";
             case getNext () of
-                SOME L.LParen => let val ast = expr ()
+                SOME L.LParen => let val ast = exprs ()
                                  in case getNext () of
                                         SOME L.RParen => ast
                                       | SOME t => expected ")" t
@@ -255,8 +260,27 @@ fun parse toks =
               | SOME (L.Id s) => Id s
               | SOME t => expected "bool, num or id" t
               | _ => err "unexpected end of input, expected bool, num or id")
+
+       and exprs () : ast =
+           let
+              (* check if token is in FIRST(expr) *)
+              fun FIRSTexpr (L.Id _) = true
+                | FIRSTexpr (L.Num _) = true
+                | FIRSTexpr (L.Bool _) = true
+                | FIRSTexpr L.If = true
+                | FIRSTexpr L.Fn = true
+                | FIRSTexpr L.Let = true
+                | FIRSTexpr L.LParen = true
+                | FIRSTexpr _ = false
+
+              val ast1 = expr ()
+           in
+              if has () andalso FIRSTexpr (peek ())
+                 then App (ast1, expr ())
+              else ast1
+           end
     in
-       expr ()
+       exprs ()
     end
 
 end
@@ -289,6 +313,15 @@ fn _ => {expected = (P.Num 0),                                  actual = p "0"}
 ,fn _ => {expected = P.Id "x", actual = p "(x)"}
 ,fn _ => {expected = P.Bool true, actual = p "(true)"}
 ,fn _ => {expected = P.If (P.Bool true, P.Id "x", P.Id "y"), actual = p "if (true) then (x) else ((y))"}
+
+,fn _ => {expected = P.App (P.Id "x", P.Id "y"), actual = p "x y"}
+,fn _ => {expected = P.App (P.Id "x", P.Id "y"), actual = p "(x y)"}
+,fn _ => {expected = P.App (P.Fn ("x", P.Id "x"), P.Num 1), actual = p "(fn x => x) 1"}
+,fn _ => {expected = P.Fn ("f", P.App (P.Id "f", P.Num 1)), actual = p "(fn f => f 1)"}
+,fn _ => {expected = P.If (P.App (P.Id "not", P.Bool true), P.Bool false, P.Bool true), actual = p "if not true then false else true"}
+,fn _ => {expected = P.If (P.Bool true, P.App (P.Id "not", P.Bool false), P.Bool true), actual = p "if true then not false else true"}
+,fn _ => {expected = P.If (P.Bool true, P.Bool false, P.App (P.Id "not", P.Bool true)), actual = p "if true then false else not true"}
+,fn _ => {expected = P.Let ("f", P.Fn ("x", P.Id "x"), P.App (P.Id "f", P.Num 1)), actual = p "let f = fn x => x in f 1"}
 
 ])
 val lexer = Test.group ("lexer",
