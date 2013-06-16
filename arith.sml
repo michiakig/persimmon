@@ -2,6 +2,7 @@
 expr   -> term expr'
 expr   -> if expr then expr else expr
 expr   -> fn id => expr
+expr   -> let id = expr in expr
 expr'  -> + term expr'
 expr'  ->
 term   -> factor term'
@@ -30,6 +31,9 @@ datatype t = Num of int
            | Then
            | Fn
            | Arrow
+           | Let
+           | Eq
+           | In
 
 fun show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
@@ -45,6 +49,9 @@ fun show (Num n) = "Num " ^ Int.toString n
   | show Then = "Then"
   | show Fn = "Fn"
   | show Arrow = "Arrow"
+  | show Let = "Let"
+  | show Eq = "Eq"
+  | show In = "In"
 
 local
 
@@ -92,6 +99,7 @@ fun lex (s : string) : t list =
          | lex' acc (#"*" :: rest) = lex' (Mul :: acc) rest
          | lex' acc (#"/" :: rest) = lex' (Div :: acc) rest
          | lex' acc (#"=" :: #">" :: rest) = lex' (Arrow :: acc) rest
+         | lex' acc (#"=" :: rest) = lex' (Eq :: acc) rest
          | lex' acc (all as c :: cs) =
            if Char.isDigit c
               then case getDigit all of
@@ -107,6 +115,8 @@ fun lex (s : string) : t list =
                        | ("true", rest) => lex' (Bool true :: acc) rest
                        | ("false", rest) => lex' (Bool false :: acc) rest
                        | ("fn", rest) => lex' (Fn :: acc) rest
+                       | ("let", rest) => lex' (Let :: acc) rest
+                       | ("in", rest) => lex' (In :: acc) rest
                        | ("", _) =>
                          raise LexicalError ("error lexing: " ^ String.implode all)
                        | (id, rest) => lex' ((Id id) :: acc) rest)
@@ -131,6 +141,7 @@ datatype ast = Num of int
              | Sub of ast * ast
              | If of ast * ast * ast
              | Fn of string * ast
+             | Let of string * ast * ast
 
 fun show (Num n) = "Num " ^ Int.toString n
   | show (Bool b) = "Bool " ^ Bool.toString b
@@ -141,6 +152,7 @@ fun show (Num n) = "Num " ^ Int.toString n
   | show (Div (lhs, rhs)) = "Div (" ^ show lhs ^ "," ^ show rhs ^ ")"
   | show (If (e1, e2, e3)) = "If (" ^ show e1 ^ "," ^ show e2 ^ "," ^ show e3 ^ ")"
   | show (Fn (x, e)) = "Fn (" ^ x ^ "," ^ show e ^ ")"
+  | show (Let (x, e1, e2)) = "Let (" ^ x ^ "," ^ show e1 ^ "," ^ show e2 ^ ")"
 
 exception SyntaxError of string
 fun parse toks =
@@ -153,6 +165,7 @@ fun parse toks =
        fun peek () = hd (!rest)
        fun match tok = has () andalso tok = peek ()
        fun err s = raise SyntaxError ("err " ^ s)
+       fun expected s t = raise SyntaxError ("expected " ^ s ^ ", got " ^ L.show t)
        val debug = false
        fun log s =
            let val t = if has () then L.show (peek ()) else ".."
@@ -173,9 +186,9 @@ fun parse toks =
                                      in case peek () of
                                             L.Else => (adv ()
                                                       ; If (e1, e2, expr ()))
-                                          | _ => err "expected 'else'"
+                                          | t => expected "else" t
                                      end)
-                       | _ => err "expected 'then'"
+                       | t => expected "then" t
                   end)
               | L.Fn =>
                 (adv ()
@@ -183,8 +196,21 @@ fun parse toks =
                       L.Id x => (adv ()
                                 ; case peek () of
                                       L.Arrow => (adv (); Fn (x, expr ()))
-                                    | t => err ("expected =>, got " ^ L.show t))
+                                    | t => expected "=>" t)
                     | t => err ("expected formal arg in fn expr, got " ^ L.show t))
+              | L.Let =>
+                (adv ()
+                ; case peek () of
+                      L.Id x => (adv ()
+                                ; case peek () of
+                                      L.Eq => (adv ()
+                                              ; let val bound = expr ()
+                                                in case peek () of
+                                                       L.In => (adv (); Let (x, bound, expr ()))
+                                                     | t => expected "in" t
+                                                end)
+                                    | t => expected "=" t)
+                    | t => err ("expected bound var in let expr, got " ^ L.show t))
               | _ => expr' (term ()))
 
        and term () : ast =
@@ -268,6 +294,8 @@ fn _ => {expected = [L.Num 0],                                  actual = L.lex "
 ,fn _ => {expected = [L.Fn, L.Id "x", L.Arrow, L.Id "x"],        actual = L.lex "fn x => x"}
 ,fn _ => {expected = [L.If, L.Num 1, L.Then, L.Num 2, L.Else, L.Num 3], actual = L.lex "if 1 then 2 else 3"}
 ,fn _ => {expected = [L.If, L.Id "foo", L.Then, L.Id "bar", L.Else, L.Id "baz"], actual = L.lex "if foo then bar else baz"}
+,fn _ => {expected = [L.Let, L.Id "x", L.Eq, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"], actual = L.lex "let x = 0 in x + x"}
+,fn _ => {expected = [L.Let, L.Id "x", L.Eq, L.Num 0, L.In, L.Id "x", L.Add, L.Id "x"], actual = L.lex "let x=0 in x + x"}
 ])
 fun main _ = (Test.runTestSuite (true, Test.concat [lexer, parser]);
               OS.Process.success)
