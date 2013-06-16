@@ -80,6 +80,8 @@ fun getWord chars =
          | notDelim #"*" = false
          | notDelim #"/" = false
          | notDelim #"=" = false
+         | notDelim #"(" = false
+         | notDelim #")" = false
          | notDelim ch = not (Char.isSpace ch)
        val (word, rest) = takeWhile notDelim chars
     in
@@ -284,6 +286,11 @@ fn _ => {expected = (P.Num 0),                                  actual = p "0"}
 ,fn _ => {expected = P.Fn ("x", P.Fn ("y", P.Id "y")), actual = p "fn x => fn y => y"}
 ,fn _ => {expected = P.Fn ("x", P.Add (P.Id "x", P.Id "x")), actual = p "fn x => x + x"}
 ,fn _ => {expected = P.Fn ("x", P.Add (P.Id "x", P.Id "x")), actual = p "fn x=>x+x"}
+
+,fn _ => {expected = P.Num 1, actual = p "(1)"}
+,fn _ => {expected = P.Id "x", actual = p "(x)"}
+,fn _ => {expected = P.Bool true, actual = p "(true)"}
+,fn _ => {expected = P.If (P.Bool true, P.Id "x", P.Id "y"), actual = p "if (true) then (x) else ((y))"}
 
 ])
 val lexer = Test.group ("lexer",
