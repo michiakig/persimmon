@@ -243,20 +243,18 @@ fun parse toks =
 
        and factor () : ast =
            (log "factor";
-           if match L.LParen
-              then (next ()
-                   ; let val ast = expr ()
-                     in if match L.RParen
-                           then (adv (); ast)
-                        else err ")"
-                     end)
-           else if has ()
-                then case next () of
-                         L.Num n => Num n
-                       | L.Bool s => Bool s
-                       | L.Id s => Id s
-                       | _ => err "expected bool, num or id"
-                else err "expected bool, num or id")
+            case getNext () of
+                SOME L.LParen => let val ast = expr ()
+                                 in case getNext () of
+                                        SOME L.RParen => ast
+                                      | SOME t => expected ")" t
+                                      | _ => err "unexpected end of input, expected )"
+                                 end
+              | SOME (L.Num n) => Num n
+              | SOME (L.Bool b) => Bool b
+              | SOME (L.Id s) => Id s
+              | SOME t => expected "bool, num or id" t
+              | _ => err "unexpected end of input, expected bool, num or id")
     in
        expr ()
     end
