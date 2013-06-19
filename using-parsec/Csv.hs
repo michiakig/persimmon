@@ -12,31 +12,13 @@ import Test.HUnit
 -- in Parser this is just unit, ie ignored
 
 csvFile :: Parser [[String]]
-csvFile =
-  do result <- many line
-     eof
-     return result
+csvFile = endBy line eol
 
 line :: Parser [String]
-line =
-  do result <- cells
-     eol
-     return result
+line = sepBy cell (char ',')
 
-cells :: Parser [String]
-cells =
-  do first <- cellContent
-     next <- remainingCells
-     return (first : next)
-
-remainingCells :: Parser [String]
-remainingCells =
-  (char ',' >> cells)
-  <|> (return [])
-
-cellContent :: Parser String
-cellContent =
-  many (noneOf ",\n")
+cell :: Parser String
+cell = many (noneOf ",\n")
 
 eol :: Parser Char
 eol = char '\n'
