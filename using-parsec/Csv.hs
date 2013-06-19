@@ -21,7 +21,8 @@ cell :: Parser String
 cell = many (noneOf ",\n")
 
 eol :: Parser Char
-eol = char '\n'
+eol = do char '\n'
+         option '\n' (char '\r')
 
 parseCSV :: String -> Either ParseError [[String]]
 parseCSV input = parse csvFile "(unknown)" input
@@ -38,4 +39,8 @@ testFew = TestCase (assertEqual "single line, multiple cols" [["foo", "bar"]]
 testLines = TestCase (assertEqual "multiple lines" [["foo", "bar"],["baz", "qux"]]
                     (unsafe "foo,bar\nbaz,qux\n"))
 
-main = do runTestTT (TestList [testEmpty, testOne, testFew, testLines])
+-- this test breaks when run with naive `eol` parser. succeeds with `option` as above
+broken = TestCase (assertEqual "broken test" [["foo", "bar"],["baz", "qux"]]
+                    (unsafe "foo,bar\n\rbaz,qux\n\r"))
+
+main = do runTestTT (TestList [testEmpty, testOne, testFew, testLines, broken])
