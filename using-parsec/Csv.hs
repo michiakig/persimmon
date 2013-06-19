@@ -18,7 +18,21 @@ line :: Parser [String]
 line = sepBy cell (char ',')
 
 cell :: Parser String
-cell = many (noneOf ",\n")
+cell = quotedCell <|> many (noneOf ",\n")
+
+quotedCell :: Parser String
+quotedCell =
+  do char '"'
+     content <- many quotedChar
+     char '"' <?> "quote at end of cell"
+     return content
+
+quotedChar :: Parser Char
+quotedChar =
+      noneOf "\""
+      -- this instance of try is highlighted as being important, to correctly parse the closing quote
+      -- also notable for occuring to the right of <|>, or to the left of some internal <|> in string?
+  <|> try (string "\"\"" >> return '"')
 
 eol :: Parser String
 eol =     try (string "\n\r")
@@ -46,4 +60,14 @@ testLines = TestCase (assertEqual "multiple lines" [["foo", "bar"],["baz", "qux"
 broken = TestCase (assertEqual "broken test" [["foo", "bar"],["baz", "qux"]]
                     (unsafe "foo,bar\n\rbaz,qux\n\r"))
 
-main = do runTestTT (TestList [testEmpty, testOne, testFew, testLines, broken])
+testQuoted = TestCase (assertEqual "quoted cell" [["foo,bar", "baz"]]
+                       (unsafe "\"foo,bar\",baz\n"))
+
+testLarger = TestCase (assertEqual "larger" [["Product", "Price"],
+                                             ["O'Reilly Socks", "10"],
+                                             ["Shirt with \"Haskell\" text", "20"],
+                                             ["Shirt, \"O'Reilly\" version", "20"],
+                                             ["Haskell Caps","15"]]
+                       (unsafe "\"Product\",\"Price\"\n\"O'Reilly Socks\",10\n\"Shirt with \"\"Haskell\"\" text\",20\n\"Shirt, \"\"O'Reilly\"\" version\",20\n\"Haskell Caps\",15\n"))
+
+main = do runTestTT (TestList [testEmpty, testOne, testFew, testLines, broken, testQuoted, testLarger])
