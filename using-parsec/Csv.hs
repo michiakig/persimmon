@@ -1,5 +1,6 @@
 import Text.Parsec
 import Text.Parsec.String
+import Test.HUnit
 
 -- RWH ch. 16 uses Parsec 2 (module Text.ParserCombinators.Parsec)
 -- and annotates the parsers with the following type: GenParser Char st [String]
@@ -43,3 +44,16 @@ eol = char '\n'
 parseCSV :: String -> Either ParseError [[String]]
 parseCSV input = parse csvFile "(unknown)" input
 
+unsafe input =
+  case parseCSV input of
+    Left e -> error (show e)
+    Right res -> res
+
+testEmpty = TestCase (assertEqual "empty input" [] (unsafe ""))
+testOne = TestCase (assertEqual "single line, single col" [["foo"]] (unsafe "foo\n"))
+testFew = TestCase (assertEqual "single line, multiple cols" [["foo", "bar"]]
+                    (unsafe "foo,bar\n"))
+testLines = TestCase (assertEqual "multiple lines" [["foo", "bar"],["baz", "qux"]]
+                    (unsafe "foo,bar\nbaz,qux\n"))
+
+main = do runTestTT (TestList [testEmpty, testOne, testFew, testLines])
