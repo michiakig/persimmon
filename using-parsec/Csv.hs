@@ -25,6 +25,7 @@ eol =     try (string "\n\r")
       <|> try (string "\r\n")
       <|> string "\n"
       <|> string "\r"
+      <?> "end of line"
 
 parseCSV :: String -> Either ParseError [[String]]
 parseCSV input = parse csvFile "(unknown)" input
