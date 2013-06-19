@@ -1,0 +1,1 @@
+Code from [Real World Haskell chapter 16](http://book.realworldhaskell.org/read/using-parsec.html), updated for Parsec 3
