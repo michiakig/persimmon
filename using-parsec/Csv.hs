@@ -20,9 +20,11 @@ line = sepBy cell (char ',')
 cell :: Parser String
 cell = many (noneOf ",\n")
 
-eol :: Parser Char
-eol = do char '\n'
-         option '\n' (char '\r')
+eol :: Parser String
+eol =     try (string "\n\r")
+      <|> try (string "\r\n")
+      <|> string "\n"
+      <|> string "\r"
 
 parseCSV :: String -> Either ParseError [[String]]
 parseCSV input = parse csvFile "(unknown)" input
