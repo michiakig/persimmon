@@ -102,15 +102,15 @@ struct
              fun expr () : Syntax.t =
                  (log "expr"; expr' (term ()))
 
-             and term () : Syntax.t =
-                 (log "term"; term' (factor ()))
-
              and expr' (lhs : Syntax.t) : Syntax.t =
                  (log "expr'";
                   case peek () of
                       SOME Token.Add => (eat (); expr' (Syntax.Add (lhs, term ())))
                     | SOME Token.Sub => (eat (); expr' (Syntax.Sub (lhs, term ())))
                     | _ => lhs)
+
+             and term () : Syntax.t =
+                 (log "term"; term' (factor ()))
 
              and term' (lhs : Syntax.t) : Syntax.t =
                  (log "term'";
