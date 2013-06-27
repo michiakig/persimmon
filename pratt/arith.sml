@@ -3,7 +3,7 @@ struct
 
    structure Token =
    struct
-      datatype t = Num of int | Add | Sub | Mul | Div | LParen | RParen
+      datatype t = Num of int | Add | Sub | Mul | Div | LParen | RParen | Tilde
       fun show (Num n) = "Num " ^ Int.toString n
         | show Add = "Add"
         | show Sub = "Sub"
@@ -11,6 +11,7 @@ struct
         | show Div = "Div"
         | show LParen = "LParen"
         | show RParen = "RParen"
+        | show Tilde = "Tilde"
    end
 
    structure Lexer =
@@ -46,6 +47,7 @@ struct
                | lexStr' acc (#"/"::xs) = lexStr' (Div::acc) xs
                | lexStr' acc (#"("::xs) = lexStr' (LParen::acc) xs
                | lexStr' acc (#")"::xs) = lexStr' (RParen::acc) xs
+               | lexStr' acc (#"~"::xs) = lexStr' (Tilde::acc) xs
                | lexStr' acc (all as x::xs) =
                  if Char.isSpace x
                     then lexStr' acc xs
@@ -67,6 +69,7 @@ struct
                  | Sub of t * t
                  | Mul of t * t
                  | Div of t * t
+                 | Neg of t
    end
 
    structure Parser =
@@ -127,6 +130,7 @@ struct
                          ast
                       end
                     | SOME (Token.Num n) => Syntax.Num n
+                    | SOME Token.Tilde => Syntax.Neg (expr ())
                     | SOME t => raise SyntaxError
                     | _ => raise SyntaxError)
 
