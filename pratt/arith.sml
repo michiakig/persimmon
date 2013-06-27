@@ -3,7 +3,7 @@ struct
 
    structure Token =
    struct
-      datatype t = Num of int | Add | Sub | Mul | Div | LParen | RParen | Tilde
+      datatype t = Num of int | Add | Sub | Mul | Div | LParen | RParen | Tilde | Caret
       fun show (Num n) = "Num " ^ Int.toString n
         | show Add = "Add"
         | show Sub = "Sub"
@@ -12,6 +12,7 @@ struct
         | show LParen = "LParen"
         | show RParen = "RParen"
         | show Tilde = "Tilde"
+        | show Caret = "Caret"
    end
 
    structure Lexer =
@@ -48,6 +49,7 @@ struct
                | lexStr' acc (#"("::xs) = lexStr' (LParen::acc) xs
                | lexStr' acc (#")"::xs) = lexStr' (RParen::acc) xs
                | lexStr' acc (#"~"::xs) = lexStr' (Tilde::acc) xs
+               | lexStr' acc (#"^"::xs) = lexStr' (Caret::acc) xs
                | lexStr' acc (all as x::xs) =
                  if Char.isSpace x
                     then lexStr' acc xs
@@ -69,6 +71,7 @@ struct
                  | Sub of t * t
                  | Mul of t * t
                  | Div of t * t
+                 | Pow of t * t
                  | Neg of t
    end
 
@@ -110,13 +113,22 @@ struct
                     | _ => lhs)
 
              and term () : Syntax.t =
-                 (log "term"; term' (factor ()))
+                 (log "term"; term' (pow ()))
 
              and term' (lhs : Syntax.t) : Syntax.t =
                  (log "term'";
                   case peek () of
-                      SOME Token.Mul => (eat (); term' (Syntax.Mul (lhs, factor ())))
-                    | SOME Token.Div => (eat (); term' (Syntax.Div (lhs, factor ())))
+                      SOME Token.Mul => (eat (); term' (Syntax.Mul (lhs, pow ())))
+                    | SOME Token.Div => (eat (); term' (Syntax.Div (lhs, pow ())))
+                    | _ => lhs)
+
+             and pow () : Syntax.t =
+                 (log "pow"; pow' (factor ()))
+
+             and pow' (lhs : Syntax.t) : Syntax.t =
+                 (log "pow'";
+                  case peek () of
+                      SOME Token.Caret => (eat (); pow' (Syntax.Pow (lhs, factor ())))
                     | _ => lhs)
 
              and factor () : Syntax.t =
