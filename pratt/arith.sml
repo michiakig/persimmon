@@ -3,7 +3,7 @@ struct
 
    structure Token =
    struct
-      datatype t = Num of int | Add | Sub | Mul | Div | LParen | RParen | Tilde | Caret
+      datatype t = Num of int | Add | Sub | Mul | Div | LParen | RParen | Tilde | Caret | Incr | Decr
       fun show (Num n) = "Num " ^ Int.toString n
         | show Add = "Add"
         | show Sub = "Sub"
@@ -13,6 +13,8 @@ struct
         | show RParen = "RParen"
         | show Tilde = "Tilde"
         | show Caret = "Caret"
+        | show Incr = "Incr"
+        | show Decr = "Decr"
    end
 
    structure Lexer =
@@ -42,14 +44,16 @@ struct
                  end
 
              fun lexStr' acc [] = List.rev acc
-               | lexStr' acc (#"+"::xs) = lexStr' (Add::acc) xs
-               | lexStr' acc (#"-"::xs) = lexStr' (Sub::acc) xs
-               | lexStr' acc (#"*"::xs) = lexStr' (Mul::acc) xs
-               | lexStr' acc (#"/"::xs) = lexStr' (Div::acc) xs
-               | lexStr' acc (#"("::xs) = lexStr' (LParen::acc) xs
-               | lexStr' acc (#")"::xs) = lexStr' (RParen::acc) xs
-               | lexStr' acc (#"~"::xs) = lexStr' (Tilde::acc) xs
-               | lexStr' acc (#"^"::xs) = lexStr' (Caret::acc) xs
+               | lexStr' acc (#"+":: #"+"::xs) = lexStr' (Incr::acc) xs
+               | lexStr' acc (#"+"::xs)       = lexStr' (Add::acc) xs
+               | lexStr' acc (#"-":: #"-"::xs) = lexStr' (Decr::acc) xs
+               | lexStr' acc (#"-"::xs)       = lexStr' (Sub::acc) xs
+               | lexStr' acc (#"*"::xs)       = lexStr' (Mul::acc) xs
+               | lexStr' acc (#"/"::xs)       = lexStr' (Div::acc) xs
+               | lexStr' acc (#"("::xs)       = lexStr' (LParen::acc) xs
+               | lexStr' acc (#")"::xs)       = lexStr' (RParen::acc) xs
+               | lexStr' acc (#"~"::xs)       = lexStr' (Tilde::acc) xs
+               | lexStr' acc (#"^"::xs)       = lexStr' (Caret::acc) xs
                | lexStr' acc (all as x::xs) =
                  if Char.isSpace x
                     then lexStr' acc xs
@@ -73,6 +77,8 @@ struct
                  | Div of t * t
                  | Pow of t * t
                  | Neg of t
+                 | Incr of t
+                 | Decr of t
    end
 
    structure Parser =
@@ -133,6 +139,8 @@ struct
 
              and factor () : Syntax.t =
                  (log "factor";
+                  let
+                     val fac =
                   case next () of
                       SOME Token.LParen =>
                       let
@@ -144,8 +152,13 @@ struct
                     | SOME (Token.Num n) => Syntax.Num n
                     | SOME Token.Tilde => Syntax.Neg (expr ())
                     | SOME t => raise SyntaxError
-                    | _ => raise SyntaxError)
-
+                    | _ => raise SyntaxError
+                  in
+                     case peek () of
+                         SOME Token.Incr => (eat (); Syntax.Incr fac)
+                       | SOME Token.Decr => (eat (); Syntax.Decr fac)
+                       | _ => fac
+                  end)
           in
              expr ()
           end
