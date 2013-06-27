@@ -2,10 +2,10 @@ Library
     structure Lexer
     structure Token
 
-    structure Arith
+    structure Recursive
 is
     lexer.sml
-    arith.sml
+    recursive.sml
 
     $/basis.cm
     $/smlnj-lib.cm

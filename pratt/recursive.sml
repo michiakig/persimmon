@@ -1,4 +1,4 @@
-structure Arith =
+structure Recursive =
 struct
    structure Syntax =
    struct
