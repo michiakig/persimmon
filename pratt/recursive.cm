@@ -5,6 +5,7 @@ Library
     structure Recursive
 is
     lexer.sml
+    syntax.sml
     recursive.sml
 
     $/basis.cm
