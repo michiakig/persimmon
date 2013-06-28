@@ -1,11 +1,13 @@
 Library
     structure Lexer
     structure Token
+    structure Syntax
 
     structure Recursive
 is
     lexer.sml
     syntax.sml
+    parser.sig
     recursive.sml
 
     $/basis.cm

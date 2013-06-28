@@ -1,6 +1,6 @@
 structure Recursive =
 struct
-   structure Parser =
+   structure Parser : PARSER =
    struct
       exception SyntaxError
 
