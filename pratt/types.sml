@@ -74,7 +74,8 @@ struct
    struct
       datatype t = Var of string
                  | Con of string * t
-                 | Infix of string * t * t
+                 | Arrow of t * t
+                 | Tuple of t * t
    end
 
    (*
@@ -82,9 +83,14 @@ struct
     *)
    structure Parser =
    struct
+
+      (*
+       * tuple `*` has higher precedence than arrow `->`
+       *)
    
-      datatype optyp = Prefix | Infix | Postfix
-      type tokinfo = {prec : int, typ : optyp}
+      type binctor = Syntax.t * Syntax.t -> Syntax.t
+      type unctor = Syntax.t -> Syntax.t
+      datatype optyp = Prefix of int * unctor | Infix of int * binctor | Postfix of int * unctor
    
       structure Map = BinaryMapFn(
          struct
@@ -93,8 +99,8 @@ struct
          end)
    
       val tokens = foldl (fn ((k, v), acc) => Map.insert (acc, k, v)) Map.empty [
-             ("*", {prec=60,typ=Infix})
-            ,("->", {prec=50,typ=Infix})
+             ("*", Infix (60, Syntax.Tuple))
+            ,("->", Infix (50, Syntax.Arrow))
           ]
    
       exception NoPrecedence of string
@@ -150,10 +156,10 @@ struct
                           case peek () of
                               SOME (t as Token.Op x) =>
                               (case getPrec t of
-                                   {prec=prec', typ=Infix} =>
+                                   Infix (prec', ctor) =>
                                    if prec < prec'
                                       then let val _ = eat ();
-                                               val lhs = Syntax.Infix (x, lhs, infexp prec')
+                                               val lhs = ctor (lhs, infexp prec')
                                            in infexp' (prec, lhs)
                                            end
                                    else lhs
