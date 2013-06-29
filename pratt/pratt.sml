@@ -1,7 +1,10 @@
+(*
+ * Pratt parser for arithmetic expressions
+ *)
 structure Parser =
 struct
 
-   datatype optyp = Prefix | Infix (* | Postfix *)
+   datatype optyp = Prefix | Infix | Postfix
    type tokinfo = {prec : int, typ : optyp }
 
    structure Map = BinaryMapFn(
@@ -17,10 +20,12 @@ struct
          ,("/", {prec=60,typ=Infix})
          ,("^", {prec=70,typ=Infix})
          ,("~", {prec=70,typ=Prefix})
+         ,("++", {prec=70,typ=Postfix})
+         ,("--", {prec=70,typ=Postfix})
        ]
 
    exception NoPrecedence of string
-   fun getPrec (Token.Op x) = valOf (Map.find (tokens, x))
+   fun getPrec (Token.Op x) = (case Map.find (tokens, x) of SOME info => info | _ => raise NoPrecedence x)
      | getPrec t            = raise NoPrecedence (Token.show t)
 
    exception SyntaxError of string
@@ -83,7 +88,8 @@ struct
                                         in infexp' (prec, lhs)
                                         end
                                 else lhs
-                              | _ => raise SyntaxError "expected infix op")
+                              | {prec=prec', typ=Postfix} => (eat (); infexp' (prec, Syntax.Unary (x, lhs)))
+                              | _ => raise SyntaxError "expected infix or postfix op")
                          | _ => lhs)
                in
                   infexp' (prec, atom ())

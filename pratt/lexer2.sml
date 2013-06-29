@@ -26,11 +26,15 @@ struct
                  takeWhile' [] xs
               end
 
-          local
-             val ops = String.explode "+-*/^~"
-          in
-              fun isInfix char = List.exists (fn x => x = char) ops
-          end
+          fun getOp chars =
+              let
+                 fun symbol #"(" = false
+                   | symbol #")" = false
+                   | symbol x = Char.isPunct x
+                 val (opStr, rest) = takeWhile symbol chars
+              in
+                 (String.implode opStr, rest)
+              end
    
           fun getDigit chars =
               let
@@ -49,8 +53,9 @@ struct
                  then case getDigit all of
                           (SOME n, rest) => lexStr' (Num n :: acc) rest
                         | (NONE, _) => raise LexicalError
-              else if isInfix x
-                 then lexStr' (Op (Char.toString x) :: acc) xs
+              else if Char.isPunct x
+                 then case getOp all of
+                          (oper, rest) => lexStr' (Op oper :: acc) rest
               else raise LexicalError
        in
           lexStr' [] (String.explode s)
