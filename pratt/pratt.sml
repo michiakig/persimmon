@@ -15,6 +15,7 @@ struct
          ,("-", 50)
          ,("*", 60)
          ,("/", 60)
+         ,("^", 70)
        ]
 
    exception NoPrecedence of string
