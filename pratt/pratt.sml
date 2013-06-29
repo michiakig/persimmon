@@ -1,8 +1,8 @@
 structure Parser =
 struct
 
-   (* datatype optyp = Prefix | Infix | Postfix *)
-   (* type tokinfo = {prec : int, typ : optyp } *)
+   datatype optyp = Prefix | Infix (* | Postfix *)
+   type tokinfo = {prec : int, typ : optyp }
 
    structure Map = BinaryMapFn(
       struct
@@ -11,11 +11,12 @@ struct
       end)
 
    val tokens = foldl (fn ((k, v), acc) => Map.insert (acc, k, v)) Map.empty [
-          ("+", 50)
-         ,("-", 50)
-         ,("*", 60)
-         ,("/", 60)
-         ,("^", 70)
+          ("+", {prec=50,typ=Infix})
+         ,("-", {prec=50,typ=Infix})
+         ,("*", {prec=60,typ=Infix})
+         ,("/", {prec=60,typ=Infix})
+         ,("^", {prec=70,typ=Infix})
+         ,("~", {prec=70,typ=Prefix})
        ]
 
    exception NoPrecedence of string
@@ -58,6 +59,9 @@ struct
                case peek () of
                    SOME (Token.Num n) => (eat (); Syntax.Num n)
                  | SOME Token.LParen  => (eat (); infexp 0 before match Token.RParen)
+                 | SOME (t as Token.Op x) => (eat (); case getPrec t of
+                                                          {prec=_, typ=Prefix} => Syntax.Unary (x, infexp 70)
+                                                        | _ => raise SyntaxError "expected prefix op")
                  | SOME t             => expected "Num or LParen" t
                  | NONE               => raise SyntaxError "unexpected EOF")
 
@@ -71,16 +75,15 @@ struct
                       (log "infexp'";
                        case peek () of
                            SOME (t as Token.Op x) =>
-                           let
-                              val prec' = getPrec t
-                           in
-                              if prec < prec'
-                                 then let val _ = eat ();
-                                          val lhs = Syntax.Infix (x, lhs, infexp prec')
-                                      in infexp' (prec, lhs)
-                                      end
-                              else lhs
-                           end
+                           (case getPrec t of
+                                {prec=prec', typ=Infix} =>
+                                if prec < prec'
+                                   then let val _ = eat ();
+                                            val lhs = Syntax.Infix (x, lhs, infexp prec')
+                                        in infexp' (prec, lhs)
+                                        end
+                                else lhs
+                              | _ => raise SyntaxError "expected infix op")
                          | _ => lhs)
                in
                   infexp' (prec, atom ())

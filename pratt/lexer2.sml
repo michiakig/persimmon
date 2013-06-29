@@ -27,7 +27,7 @@ struct
               end
 
           local
-             val ops = String.explode "+-*/^"
+             val ops = String.explode "+-*/^~"
           in
               fun isInfix char = List.exists (fn x => x = char) ops
           end
