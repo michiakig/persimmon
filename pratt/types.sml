@@ -75,7 +75,8 @@ struct
       datatype t = Var of string
                  | Con of string * t
                  | Arrow of t * t
-                 | Tuple of t * t
+                 | Tuple of t list
+                 | Paren of t
    end
 
    (*
@@ -90,7 +91,8 @@ struct
    
       type binctor = Syntax.t * Syntax.t -> Syntax.t
       type unctor = Syntax.t -> Syntax.t
-      datatype optyp = Prefix of int * unctor | Infix of int * binctor | Postfix of int * unctor
+      datatype assoc = Left | Right
+      datatype optyp = Prefix of int * unctor | Infix of int * binctor * assoc | Postfix of int * unctor
    
       structure Map = BinaryMapFn(
          struct
@@ -99,8 +101,8 @@ struct
          end)
    
       val tokens = foldl (fn ((k, v), acc) => Map.insert (acc, k, v)) Map.empty [
-             ("*", Infix (60, Syntax.Tuple))
-            ,("->", Infix (50, Syntax.Arrow))
+             ("*", Infix (60, fn (Syntax.Tuple xs, y) => Syntax.Tuple (xs @ [y]) | (x, y) => Syntax.Tuple [x, y], Left))
+            ,("->", Infix (50, Syntax.Arrow, Right))
           ]
    
       exception NoPrecedence of string
@@ -141,7 +143,7 @@ struct
                  (log "atom";
                   case peek () of
                       SOME (Token.Var v) => (eat (); Syntax.Var v)
-                    | SOME Token.LParen  => (eat (); infexp 0 before match Token.RParen)
+                    | SOME Token.LParen  => (eat (); Syntax.Paren (infexp 0) before match Token.RParen)
                     | SOME t             => expected "Var or LParen" t
                     | NONE               => raise SyntaxError "unexpected EOF")
    
@@ -156,10 +158,11 @@ struct
                           case peek () of
                               SOME (t as Token.Op x) =>
                               (case getPrec t of
-                                   Infix (prec', ctor) =>
+                                   Infix (prec', ctor, assoc) =>
                                    if prec < prec'
                                       then let val _ = eat ();
-                                               val lhs = ctor (lhs, infexp prec')
+                                               val prec'' = case assoc of Left => prec' | Right => prec' - 1
+                                               val lhs = ctor (lhs, infexp prec'')
                                            in infexp' (prec, lhs)
                                            end
                                    else lhs
