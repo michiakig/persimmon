@@ -40,6 +40,8 @@ struct
               end
    
           fun lexStr' acc [] = List.rev acc
+            | lexStr' acc (#"("::xs) = lexStr' (LParen :: acc) xs
+            | lexStr' acc (#")"::xs) = lexStr' (RParen :: acc) xs
             | lexStr' acc (all as x::xs) =
               if Char.isSpace x
                  then lexStr' acc xs

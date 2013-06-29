@@ -21,9 +21,6 @@ struct
    fun getPrec (Token.Op x) = valOf (Map.find (tokens, x))
      | getPrec t            = raise NoPrecedence (Token.show t)
 
-   fun isInfix (Token.Op x) = true
-     | isInfix _            = false
-
    exception SyntaxError of string
 
    fun parse (ts : Token.t list) : Syntax.t =
@@ -59,7 +56,8 @@ struct
               (log "atom";
                case peek () of
                    SOME (Token.Num n) => (eat (); Syntax.Num n)
-                 | SOME t             => expected "Num" t
+                 | SOME Token.LParen  => (eat (); infexp 0 before match Token.RParen)
+                 | SOME t             => expected "Num or LParen" t
                  | NONE               => raise SyntaxError "unexpected EOF")
 
           (*
@@ -68,32 +66,24 @@ struct
           and infexp (prec : int) : Syntax.t =
               (log "infexp";
                let
-                  val lhs = atom ()
+                  fun infexp' (prec : int, lhs : Syntax.t) : Syntax.t =
+                      (log "infexp'";
+                       case peek () of
+                           SOME (t as Token.Op x) =>
+                           let
+                              val prec' = getPrec t
+                           in
+                              if prec < prec'
+                                 then let val _ = eat ();
+                                          val lhs = Syntax.Infix (x, lhs, infexp prec')
+                                      in infexp' (prec, lhs)
+                                      end
+                              else lhs
+                           end
+                         | _ => lhs)
                in
-                  if has () andalso isInfix (unsafe ())
-                     then infexp' (prec, lhs)
-                  else lhs
-
+                  infexp' (prec, atom ())
                end)
-
-          (* infix expression helper *)
-          and infexp' (prec : int, lhs : Syntax.t) : Syntax.t =
-              (log "infexp'";
-               case peek () of
-                   SOME t =>
-                   let
-                      val prec' = getPrec t
-                   in
-                      if prec < prec' andalso isInfix t
-                         then let val t = next ()
-                                  val SOME (Token.Op x) = t
-                                  val lhs = Syntax.Infix (x, lhs, infexp prec')
-                              in infexp' (prec, lhs)
-                              end
-                      else lhs
-                   end
-                 | _ => lhs)
-
        in
           infexp 0
        end
