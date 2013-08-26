@@ -45,4 +45,17 @@ fun foldl (f : 'a * 'c -> 'c) (init : 'c) (rdr : ('a, 'b) StringCvt.reader) (s :
        foldl' init s
     end
 
+(*
+ * Given a reader and a stream, consume the entire stream and return a list of the resulting elements
+ *)
+fun consume (rdr : ('a, 'b) StringCvt.reader) s =
+    let
+       fun consume' acc s =
+           case rdr s of
+               NONE => rev acc
+             | SOME (x, s') => consume' (x::acc) s'
+    in
+       consume' [] s
+    end
+
 end
