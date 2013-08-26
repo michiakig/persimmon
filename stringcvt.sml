@@ -1,17 +1,19 @@
+structure Reader =
+struct
 
-val listReader : ('a, 'a list) StringCvt.reader =
+val list : ('a, 'a list) StringCvt.reader =
     fn [] => NONE
   | (x::xs) => SOME (x, xs)
 
 local
    open String
 in
-   val stringReader : (char, string) StringCvt.reader =
+   val string : (char, string) StringCvt.reader =
     fn "" => NONE
      | s => SOME (sub (s, 0), substring (s, 1, size s - 1))
 end
 
-val ioReader : (char, TextIO.StreamIO.instream) StringCvt.reader =
+val streamIO : (char, TextIO.StreamIO.instream) StringCvt.reader =
     TextIO.StreamIO.input1
 
 fun map (f : 'a -> 'c) (rdr : ('a, 'b) StringCvt.reader) : ('c, 'b) StringCvt.reader =
@@ -42,3 +44,5 @@ fun foldl (f : 'a * 'c -> 'c) (init : 'c) (rdr : ('a, 'b) StringCvt.reader) (s :
     in
        foldl' init s
     end
+
+end
