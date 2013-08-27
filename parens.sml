@@ -1,51 +1,73 @@
+datatype token = LParen | RParen | Atom of string
+
 (*
-  S -> e
-  S -> R ( S ) S
-  R -> e
-  R -> ( S )
-*)
-
-datatype token = LParen | RParen
-
-datatype ast = E | C of ast * ast * ast
-
-exception LexError
-fun lex s =
+ * Given a char reader and stream, try to extract a Scheme atom (string) from the stream, and return it with the rest of the stream
+ *)
+fun getAtom (rdr : (char, 'b) StringCvt.reader, s : 'b) : (string * 'b) option =
     let
-       fun lex' acc [] = List.rev acc
-         | lex' acc (#"(" :: cs) = lex' (LParen :: acc) cs
-         | lex' acc (#")" :: cs) = lex' (RParen :: acc) cs
-         | lex' acc (c :: cs) =
-           if Char.isSpace c
-              then raise LexError
-           else lex' acc cs
+       fun return [] _ = NONE
+         | return acc s = SOME (String.implode (rev acc), s)
+
+       fun getAtom' acc s =
+           case rdr s of
+                NONE => return acc s
+              | SOME (#"(", rest) => return acc s
+              | SOME (#")", rest) => return acc s
+              | SOME (x, rest) => if Char.isSpace x then
+                                     return acc s
+                                  else getAtom' (x :: acc) rest
     in
-       lex' [] (String.explode s)
+       getAtom' [] s
     end
+
+(*
+ * Given a char reader, produce a token reader)
+ *)
+fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader =
+    let
+       fun stripws s = StringCvt.dropl Char.isSpace rdr s
+
+       fun tokenize' s =
+           case rdr (stripws s) of
+               NONE => NONE
+             | SOME (#"(", s') => SOME (LParen, s')
+             | SOME (#")", s') => SOME (RParen, s')
+             | SOME (_, s') =>
+               case getAtom (rdr, stripws s) of
+                   NONE => NONE
+                 | SOME (atom, s') => SOME (Atom atom, s')
+    in
+       tokenize'
+    end
+
+datatype sexpr = SAtom of string | SList of sexpr list
 
 exception SyntaxError
 
-fun match x [] = false
-  | match x (y :: ys) = x = y
-
-fun parse toks =
+(*
+ * given a token reader, produce an sexpr (AST) reader
+ *)
+fun parse (rdr : (token, 'a) StringCvt.reader) : (sexpr, 'a) StringCvt.reader =
     let
-       val idx = ref 0
-       val arr = Array.fromList toks
-       fun peek () = if !idx < Array.length arr
-                        then SOME (Array.sub (arr, !idx))
-                     else NONE
-       fun advance () = idx := !idx + 1
-       fun match t =
-           case peek () of
-               SOME t' => if t = t' then (advance (); true) else false
-             | NONE => false
-       fun S () = if match LParen
-                     then R ()
-                  else true
-       and R () = if S ()
-                     then match RParen andalso S ()
-                  else raise SyntaxError
+       fun parseList acc s =
+           case rdr s of
+               SOME (Atom a, s') => parseList (SAtom a :: acc) s'
+             | SOME (LParen, _) => (case parseSexp s of
+                                        NONE => raise SyntaxError
+                                      | SOME (sexp, s') => parseList (sexp :: acc) s')
+             | _ => (rev acc, s)
+
+       and parseSexp s =
+           case rdr s of
+               NONE => NONE
+             | SOME (LParen, s') =>
+               (case parseList [] s' of
+                    (inside, s'') =>
+                    case rdr s'' of
+                        SOME (RParen, s''') => SOME (SList inside, s''')
+                      | _ => raise SyntaxError)
+             | SOME (Atom a, s') => SOME (SAtom a, s')
+             | SOME (RParen, _) => raise SyntaxError
     in
-       S ()
+       parseSexp
     end
