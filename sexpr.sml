@@ -28,16 +28,14 @@ fun getAtom (rdr : (char, 'b) StringCvt.reader, s : 'b) : (string * 'b) option =
  *)
 fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader =
     let
-       fun stripws s = StringCvt.dropl Char.isSpace rdr s
-
        fun tokenize' s =
-           case rdr (stripws s) of
+           case rdr (StringCvt.skipWS rdr s) of
                NONE => NONE
              | SOME (#".", s') => SOME (Dot, s')
              | SOME (#"(", s') => SOME (LParen, s')
              | SOME (#")", s') => SOME (RParen, s')
              | SOME (_, s') =>
-               case getAtom (rdr, stripws s) of
+               case getAtom (rdr, StringCvt.skipWS rdr s) of
                    NONE => NONE
                  | SOME (atom, s') => SOME (Atom atom, s')
     in
