@@ -42,18 +42,20 @@ fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader 
 
 datatype sexpr = SAtom of string | SList of sexpr list
 
-exception SyntaxError
+datatype ('a, 'b) either = Success of 'a | Fail of 'b
 
 (*
  * given a token reader, produce an sexpr (AST) reader
  *)
-fun parse (rdr : (token, 'a) StringCvt.reader) : (sexpr, 'a) StringCvt.reader =
+fun parse (rdr : (token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) StringCvt.reader =
     let
+       exception SyntaxError of string * 'a
+
        fun parseList acc s =
            case rdr s of
                SOME (Atom a, s') => parseList (SAtom a :: acc) s'
              | SOME (LParen, _) => (case parseSexp s of
-                                        NONE => raise SyntaxError
+                                        NONE => raise (SyntaxError ("expected Atom or RParen", s))
                                       | SOME (sexp, s') => parseList (sexp :: acc) s')
              | _ => (rev acc, s)
 
@@ -65,9 +67,13 @@ fun parse (rdr : (token, 'a) StringCvt.reader) : (sexpr, 'a) StringCvt.reader =
                     (inside, s'') =>
                     case rdr s'' of
                         SOME (RParen, s''') => SOME (SList inside, s''')
-                      | _ => raise SyntaxError)
+                      | _ => raise (SyntaxError ("expected RParen", s'')))
              | SOME (Atom a, s') => SOME (SAtom a, s')
-             | SOME (RParen, _) => raise SyntaxError
+             | SOME (RParen, _) => raise (SyntaxError ("expected LParen or Atom, got RParen", s))
     in
-       parseSexp
+       fn s =>
+          (case parseSexp s of
+               SOME (x, s') => SOME (Success x, s')
+             | NONE => NONE)
+          handle SyntaxError (msg, s') => SOME (Fail msg, s')
     end
