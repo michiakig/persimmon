@@ -27,20 +27,16 @@ fun getAtom (rdr : (char, 'b) StringCvt.reader, s : 'b) : (string * 'b) option =
  * Given a char reader, produce a token reader)
  *)
 fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader =
-    let
-       fun tokenize' s =
-           case rdr (StringCvt.skipWS rdr s) of
+    fn s =>
+       case rdr (StringCvt.skipWS rdr s) of
+           NONE => NONE
+         | SOME (#".", s') => SOME (Dot, s')
+         | SOME (#"(", s') => SOME (LParen, s')
+         | SOME (#")", s') => SOME (RParen, s')
+         | SOME (_, s') =>
+           case getAtom (rdr, StringCvt.skipWS rdr s) of
                NONE => NONE
-             | SOME (#".", s') => SOME (Dot, s')
-             | SOME (#"(", s') => SOME (LParen, s')
-             | SOME (#")", s') => SOME (RParen, s')
-             | SOME (_, s') =>
-               case getAtom (rdr, StringCvt.skipWS rdr s) of
-                   NONE => NONE
-                 | SOME (atom, s') => SOME (Atom atom, s')
-    in
-       tokenize'
-    end
+             | SOME (atom, s') => SOME (Atom atom, s')
 
 end
 
