@@ -1,3 +1,6 @@
+structure Lexer =
+struct
+
 datatype token = LParen | RParen | Atom of string | Dot
 
 (*
@@ -40,6 +43,11 @@ fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader 
     in
        tokenize'
     end
+
+end
+
+structure Parser =
+struct
 
 datatype sexpr = SNil | SAtom of string | SCons of sexpr * sexpr | SList of sexpr list
 
@@ -97,3 +105,4 @@ fun parse (rdr : (token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) St
           handle SyntaxError (msg, s') => SOME (Fail msg, s')
     end
 
+end
