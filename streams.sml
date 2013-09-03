@@ -26,8 +26,11 @@ fun inputWhile (p : S.elem -> bool) (s : S.instream) : S.vector * S.instream =
        inputWhile' [] s
     end
 
-fun fromFile f = TextIO.getInstream (TextIO.openIn f)
-fun fromStr s = TextIO.getInstream (TextIO.openString s)
+val fromFile : string -> TextIO.StreamIO.instream =
+    TextIO.getInstream o TextIO.openIn
+
+val fromStr : string -> TextIO.StreamIO.instream =
+    TextIO.getInstream o TextIO.openString
 
 end
 end
