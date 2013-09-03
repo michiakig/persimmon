@@ -4,7 +4,8 @@ struct
 datatype token = LParen | RParen | Atom of string | Dot
 
 (*
- * Given a char reader and stream, try to extract a Scheme atom (string) from the stream, and return it with the rest of the stream
+ * Given a char reader and stream, try to extract a Scheme atom
+ * (string) from the stream, and return it with the rest of the stream
  *)
 fun getAtom (rdr : (char, 'b) StringCvt.reader, s : 'b) : (string * 'b) option =
     let
@@ -24,7 +25,7 @@ fun getAtom (rdr : (char, 'b) StringCvt.reader, s : 'b) : (string * 'b) option =
     end
 
 (*
- * Given a char reader, produce a token reader)
+ * Given a char reader, produce a token reader
  *)
 fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader =
     fn s =>
