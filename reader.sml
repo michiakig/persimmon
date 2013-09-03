@@ -13,6 +13,12 @@ in
      | s => SOME (sub (s, 0), substring (s, 1, size s - 1))
 end
 
+local
+   open Substring
+in
+   val substring : (char, substring) StringCvt.reader = getc
+end
+
 val streamIO : (char, TextIO.StreamIO.instream) StringCvt.reader =
     TextIO.StreamIO.input1
 
