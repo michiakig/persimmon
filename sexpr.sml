@@ -1,4 +1,4 @@
-datatype token = LParen | RParen | Atom of string
+datatype token = LParen | RParen | Atom of string | Dot
 
 (*
  * Given a char reader and stream, try to extract a Scheme atom (string) from the stream, and return it with the rest of the stream
@@ -30,6 +30,7 @@ fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader 
        fun tokenize' s =
            case rdr (stripws s) of
                NONE => NONE
+             | SOME (#".", s') => SOME (Dot, s')
              | SOME (#"(", s') => SOME (LParen, s')
              | SOME (#")", s') => SOME (RParen, s')
              | SOME (_, s') =>
@@ -40,7 +41,7 @@ fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader 
        tokenize'
     end
 
-datatype sexpr = SAtom of string | SList of sexpr list
+datatype sexpr = SNil | SAtom of string | SCons of sexpr * sexpr | SList of sexpr list
 
 datatype ('a, 'b) either = Success of 'a | Fail of 'b
 
@@ -51,29 +52,48 @@ fun parse (rdr : (token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) St
     let
        exception SyntaxError of string * 'a
 
-       fun parseList acc s =
-           case rdr s of
-               SOME (Atom a, s') => parseList (SAtom a :: acc) s'
-             | SOME (LParen, _) => (case parseSexp s of
-                                        NONE => raise (SyntaxError ("expected Atom or RParen", s))
-                                      | SOME (sexp, s') => parseList (sexp :: acc) s')
-             | _ => (rev acc, s)
+       fun unexpected s = raise (SyntaxError ("unexpected end of input", s))
 
-       and parseSexp s =
+       fun parseSexpr s =
            case rdr s of
                NONE => NONE
-             | SOME (LParen, s') =>
-               (case parseList [] s' of
-                    (inside, s'') =>
-                    case rdr s'' of
-                        SOME (RParen, s''') => SOME (SList inside, s''')
-                      | _ => raise (SyntaxError ("expected RParen", s'')))
              | SOME (Atom a, s') => SOME (SAtom a, s')
-             | SOME (RParen, _) => raise (SyntaxError ("expected LParen or Atom, got RParen", s))
+             | SOME (LParen, s') => parseTail s'
+             | SOME (RParen, s') => raise (SyntaxError ("unexpected )", s'))
+             | SOME (Dot, s') => raise (SyntaxError ("unexpected .", s'))
+
+       and parseTail s =
+           case rdr s of
+               NONE => unexpected s
+             | SOME (RParen, s') => SOME (SNil, s')
+             | _ => case parseSexpr s of
+                        NONE => unexpected s
+                      | SOME (hd, s') => parseCdr hd s'
+
+       and parseCdr car s =
+           case rdr s of
+               NONE => unexpected s
+             | SOME (Dot, s') => (case parseSexpr s' of
+                                     NONE => unexpected s'
+                                   | SOME (cdr, s'') => case rdr s'' of
+                                                            SOME (RParen, s''') => SOME (SCons (car, cdr), s''')
+                                                          | SOME _ => raise (SyntaxError ("expected )", s''))
+                                                          | NONE => unexpected s'')
+             | SOME (RParen, s') => SOME (SCons (car, SNil), s')
+             | SOME _ => parseList [car] s
+
+       and parseList acc s =
+           case rdr s of
+               NONE => unexpected s
+             | SOME (RParen, s') => SOME (SList (rev acc), s')
+             | _ => case parseSexpr s of
+                        NONE => unexpected s
+                      | SOME (sexpr, s') => parseList (sexpr :: acc) s'
     in
        fn s =>
-          (case parseSexp s of
+          (case parseSexpr s of
                SOME (x, s') => SOME (Success x, s')
              | NONE => NONE)
           handle SyntaxError (msg, s') => SOME (Fail msg, s')
     end
+
