@@ -101,3 +101,21 @@ fun parse (rdr : (Lexer.token, 'a) StringCvt.reader) : ((sexpr, string) either, 
     end
 
 end
+
+val _ = use "reader.sml" ;
+
+local
+   open Reader
+   open Lexer
+   open Parser
+in
+   val [Atom "foo"]                 = consume (tokenize string) "foo"
+   val [LParen, RParen]             = consume (tokenize string) "()"
+   val [LParen, Atom "foo", RParen] = consume (tokenize string) "(foo)"
+
+   val [Success (SAtom "foo")]                      = consume (parse (tokenize string)) "foo"
+   val [Success SNil]                               = consume (parse (tokenize string)) "()"
+   val [Success (SCons (SAtom "foo", SNil))]        = consume (parse (tokenize string)) "(foo)"
+   val [Success (SCons (SAtom "foo", SAtom "bar"))] = consume (parse (tokenize string)) "(foo . bar)"
+   val [Success (SList [SAtom "foo", SAtom "bar"])] = consume (parse (tokenize string)) "(foo bar)"
+end
