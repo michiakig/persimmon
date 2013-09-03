@@ -51,7 +51,7 @@ datatype ('a, 'b) either = Success of 'a | Fail of 'b
 (*
  * given a token reader, produce an sexpr (AST) reader
  *)
-fun parse (rdr : (token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) StringCvt.reader =
+fun parse (rdr : (Lexer.token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) StringCvt.reader =
     let
        exception SyntaxError of string * 'a
 
@@ -60,15 +60,15 @@ fun parse (rdr : (token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) St
        fun parseSexpr s =
            case rdr s of
                NONE => NONE
-             | SOME (Atom a, s') => SOME (SAtom a, s')
-             | SOME (LParen, s') => parseTail s'
-             | SOME (RParen, s') => raise (SyntaxError ("unexpected )", s'))
-             | SOME (Dot, s') => raise (SyntaxError ("unexpected .", s'))
+             | SOME (Lexer.Atom a, s') => SOME (SAtom a, s')
+             | SOME (Lexer.LParen, s') => parseTail s'
+             | SOME (Lexer.RParen, s') => raise (SyntaxError ("unexpected )", s'))
+             | SOME (Lexer.Dot, s') => raise (SyntaxError ("unexpected .", s'))
 
        and parseTail s =
            case rdr s of
                NONE => unexpected s
-             | SOME (RParen, s') => SOME (SNil, s')
+             | SOME (Lexer.RParen, s') => SOME (SNil, s')
              | _ => case parseSexpr s of
                         NONE => unexpected s
                       | SOME (hd, s') => parseCdr hd s'
@@ -76,19 +76,19 @@ fun parse (rdr : (token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) St
        and parseCdr car s =
            case rdr s of
                NONE => unexpected s
-             | SOME (Dot, s') => (case parseSexpr s' of
+             | SOME (Lexer.Dot, s') => (case parseSexpr s' of
                                      NONE => unexpected s'
                                    | SOME (cdr, s'') => case rdr s'' of
-                                                            SOME (RParen, s''') => SOME (SCons (car, cdr), s''')
+                                                            SOME (Lexer.RParen, s''') => SOME (SCons (car, cdr), s''')
                                                           | SOME _ => raise (SyntaxError ("expected )", s''))
                                                           | NONE => unexpected s'')
-             | SOME (RParen, s') => SOME (SCons (car, SNil), s')
+             | SOME (Lexer.RParen, s') => SOME (SCons (car, SNil), s')
              | SOME _ => parseList [car] s
 
        and parseList acc s =
            case rdr s of
                NONE => unexpected s
-             | SOME (RParen, s') => SOME (SList (rev acc), s')
+             | SOME (Lexer.RParen, s') => SOME (SList (rev acc), s')
              | _ => case parseSexpr s of
                         NONE => unexpected s
                       | SOME (sexpr, s') => parseList (sexpr :: acc) s'
