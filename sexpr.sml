@@ -1,25 +1,30 @@
+(* Lexer and parser for simplified s-expressions (no dotted-pairs) *)
+
+type ('a, 'b) reader = 'b -> ('a * 'b) option
+
 structure Lexer =
 struct
 
-datatype token = LParen | RParen | Atom of string | Dot
+datatype token = LParen | RParen | Atom of string
 
 (*
  * Given a char reader and stream, try to extract a Scheme atom
  * (string) from the stream, and return it with the rest of the stream
  *)
-fun getAtom (rdr : (char, 'b) StringCvt.reader, s : 'b) : (string * 'b) option =
+fun getAtom (rdr : (char, 'b) reader, s : 'b) : (string * 'b) option =
     let
-       fun return [] _ = NONE
-         | return acc s = SOME (String.implode (rev acc), s)
+       fun done [] _ = NONE
+         | done acc s = SOME (String.implode (rev acc), s)
 
        fun getAtom' acc s =
            case rdr s of
-                NONE => return acc s
-              | SOME (#"(", rest) => return acc s
-              | SOME (#")", rest) => return acc s
-              | SOME (x, rest) => if Char.isSpace x then
-                                     return acc s
-                                  else getAtom' (x :: acc) rest
+                NONE => done acc s
+              | SOME (#"(", rest) => done acc s
+              | SOME (#")", rest) => done acc s
+              | SOME (x,    rest) =>
+                if Char.isSpace x then
+                   done acc s
+                else getAtom' (x :: acc) rest
     in
        getAtom' [] s
     end
@@ -27,11 +32,10 @@ fun getAtom (rdr : (char, 'b) StringCvt.reader, s : 'b) : (string * 'b) option =
 (*
  * Given a char reader, produce a token reader
  *)
-fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader =
+fun tokenize (rdr : (char, 'a) reader) : (token, 'a) reader =
     fn s =>
        case rdr (StringCvt.skipWS rdr s) of
            NONE => NONE
-         | SOME (#".", s') => SOME (Dot, s')
          | SOME (#"(", s') => SOME (LParen, s')
          | SOME (#")", s') => SOME (RParen, s')
          | SOME (_, s') =>
@@ -41,92 +45,60 @@ fun tokenize (rdr : (char, 'a) StringCvt.reader) : (token, 'a) StringCvt.reader 
 
 end
 
+(*
+
+Sexpr -> atom .
+Sexpr -> ( SexprList ) .
+
+SexprList -> Sexpr SexprList .
+SexprList -> .
+
+*)
+
 structure Parser =
 struct
 
-datatype sexpr = SNil | SAtom of string | SCons of sexpr * sexpr | SList of sexpr list
+exception Error
 
-datatype ('a, 'b) either = Success of 'a | Fail of 'b
+datatype sexpr = Atom of string | List of sexpr list
 
-
-
-(* sexpr -> atom *)
-(* sexpr -> ( inside ) *)
-
-(* inside -> *)
-(* inside -> sexpr tail *)
-
-(* tail -> . sexpr *)
-(* tail -> inside *)
-
-(*
- * given a token reader, produce an sexpr (AST) reader
- *)
-fun parse (rdr : (Lexer.token, 'a) StringCvt.reader) : ((sexpr, string) either, 'a) StringCvt.reader =
+(* given a token reader, produce an sexpr (AST) reader *)
+fun parse (rdr : (Lexer.token, 'a) reader) : (sexpr, 'a) reader =
     let
-       exception SyntaxError of string * 'a
-
-       fun unexpected s = raise (SyntaxError ("unexpected end of input", s))
-
        fun parseSexpr s =
            case rdr s of
+               SOME (Lexer.Atom a, s') => SOME (Atom a, s')
+             | SOME (Lexer.LParen, s') => parseSexprList s' []
+             | SOME (Lexer.RParen, _)  => NONE
+             | NONE => NONE
+
+       and parseSexprList s acc =
+           case rdr s of
                NONE => NONE
-             | SOME (Lexer.Atom a, s') => SOME (SAtom a, s')
-             | SOME (Lexer.LParen, s') => parseTail s'
-             | SOME (Lexer.RParen, s') => raise (SyntaxError ("unexpected )", s'))
-             | SOME (Lexer.Dot, s') => raise (SyntaxError ("unexpected .", s'))
-
-       and parseTail s =
-           case rdr s of
-               NONE => unexpected s
-             | SOME (Lexer.RParen, s') => SOME (SNil, s')
-             | _ => case parseSexpr s of
-                        NONE => unexpected s
-                      | SOME (hd, s') => parseCdr hd s'
-
-       and parseCdr car s =
-           case rdr s of
-               NONE => unexpected s
-             | SOME (Lexer.Dot, s') => (case parseSexpr s' of
-                                     NONE => unexpected s'
-                                   | SOME (cdr, s'') => case rdr s'' of
-                                                            SOME (Lexer.RParen, s''') => SOME (SCons (car, cdr), s''')
-                                                          | SOME _ => raise (SyntaxError ("expected )", s''))
-                                                          | NONE => unexpected s'')
-             | SOME (Lexer.RParen, s') => SOME (SCons (car, SNil), s')
-             | SOME _ => parseList [car] s
-
-       and parseList acc s =
-           case rdr s of
-               NONE => unexpected s
-             | SOME (Lexer.RParen, s') => SOME (SList (rev acc), s')
-             | _ => case parseSexpr s of
-                        NONE => unexpected s
-                      | SOME (sexpr, s') => parseList (sexpr :: acc) s'
+             | SOME (Lexer.RParen, s') => SOME (List (rev acc), s')
+             | SOME _ => case parseSexpr s of
+                             SOME (x, s') => parseSexprList s' (x :: acc)
+                           | _ => NONE
     in
-       fn s =>
-          (case parseSexpr s of
-               SOME (x, s') => SOME (Success x, s')
-             | NONE => NONE)
-          handle SyntaxError (msg, s') => SOME (Fail msg, s')
+       parseSexpr
     end
 
 end
 
-val _ = use "reader.sml" ;
+fun list s =
+   case s of
+       []      => NONE
+     | x :: xs => SOME (x, xs)
+
 
 local
-   open Reader
-   open Lexer
    open Parser
+   val lex = Lexer.tokenize list
+   val parse = (parse lex) o String.explode
 in
-   val [Atom "foo"]                 = consume (tokenize string) "foo"
-   val [LParen, RParen]             = consume (tokenize string) "()"
-   val [LParen, Atom "foo", RParen] = consume (tokenize string) "(foo)"
-
-   val [Success (SAtom "foo")]                      = consume (parse (tokenize string)) "foo"
-   val [Success SNil]                               = consume (parse (tokenize string)) "()"
-   val [Success (SCons (SAtom "foo", SNil))]        = consume (parse (tokenize string)) "(foo)"
-   val [Success (SCons (SAtom "foo", SAtom "bar"))] = consume (parse (tokenize string)) "(foo . bar)"
-   val [Success (SList [SAtom "foo", SAtom "bar"])] = consume (parse (tokenize string)) "(foo bar)"
+   val SOME (Atom "foo", [])                           = parse "foo"
+   val SOME (List [], [])                              = parse "()"
+   val SOME (List [Atom "foo"], [])                    = parse "(foo)"
+   val SOME (List [Atom "foo", Atom "bar"], [])        = parse "(foo bar)"
+   val SOME (List [Atom "foo", List [Atom "bar"]], []) = parse "(foo (bar))"
 end
