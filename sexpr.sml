@@ -48,6 +48,17 @@ datatype sexpr = SNil | SAtom of string | SCons of sexpr * sexpr | SList of sexp
 
 datatype ('a, 'b) either = Success of 'a | Fail of 'b
 
+
+
+(* sexpr -> atom *)
+(* sexpr -> ( inside ) *)
+
+(* inside -> *)
+(* inside -> sexpr tail *)
+
+(* tail -> . sexpr *)
+(* tail -> inside *)
+
 (*
  * given a token reader, produce an sexpr (AST) reader
  *)
