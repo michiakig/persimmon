@@ -65,22 +65,22 @@ datatype sexpr = Atom of string | List of sexpr list
 (* given a token reader, produce an sexpr (AST) reader *)
 fun parse (rdr : (Lexer.token, 'a) reader) : (sexpr, 'a) reader =
     let
-       fun parseSexpr s =
+       fun sexpr s =
            case rdr s of
                SOME (Lexer.Atom a, s') => SOME (Atom a, s')
-             | SOME (Lexer.LParen, s') => parseSexprList s' []
+             | SOME (Lexer.LParen, s') => sexprList s' []
              | SOME (Lexer.RParen, _)  => NONE
              | NONE => NONE
 
-       and parseSexprList s acc =
+       and sexprList s acc =
            case rdr s of
                NONE => NONE
              | SOME (Lexer.RParen, s') => SOME (List (rev acc), s')
-             | SOME _ => case parseSexpr s of
-                             SOME (x, s') => parseSexprList s' (x :: acc)
+             | SOME _ => case sexpr s of
+                             SOME (x, s') => sexprList s' (x :: acc)
                            | _ => NONE
     in
-       parseSexpr
+       sexpr
     end
 
 end
