@@ -7,6 +7,10 @@ struct
 
 datatype token = LParen | RParen | Atom of string
 
+fun show LParen   = "("
+  | show RParen   = ")"
+  | show (Atom a) = a
+
 (*
  * Given a char reader and stream, try to extract a Scheme atom
  * (string) from the stream, and return it with the rest of the stream
@@ -32,7 +36,7 @@ fun getAtom (rdr : (char, 'b) reader, s : 'b) : (string * 'b) option =
 (*
  * Given a char reader, produce a token reader
  *)
-fun tokenize (rdr : (char, 'a) reader) : (token, 'a) reader =
+fun makeLexer (rdr : (char, 'a) reader) : (token, 'a) reader =
     fn s =>
        case rdr (StringCvt.skipWS rdr s) of
            NONE => NONE
@@ -58,47 +62,69 @@ SexprList -> .
 structure Parser =
 struct
 
-exception Error
-
 datatype sexpr = Atom of string | List of sexpr list
 
-(* given a token reader, produce an sexpr (AST) reader *)
-fun parse (rdr : (Lexer.token, 'a) reader) : (sexpr, 'a) reader =
+datatype ('a,'b) result = EOF | Error of string * 'b | Success of 'a * 'b
+type ('a,'b) parser = 'b -> ('a,'b) result
+
+(* given a token reader, produce an sexpr (AST) parser *)
+fun makeParser (rdr : (Lexer.token, 'a) reader) : (sexpr, 'a) parser =
     let
+       val debug = false
+
+       fun log msg s =
+           if debug then
+              (print msg
+              ; print ":"
+              ; print (case rdr s of
+                           SOME (t, _) => (Lexer.show t)
+                         | NONE        => "eof")
+              ; print "\n")
+           else ()
+
        fun sexpr s =
-           case rdr s of
-               SOME (Lexer.Atom a, s') => SOME (Atom a, s')
-             | SOME (Lexer.LParen, s') => sexprList s' []
-             | SOME (Lexer.RParen, _)  => NONE
-             | NONE => NONE
+           (log "sexp" s;
+            case rdr s of
+                SOME (Lexer.Atom a, s') => Success (Atom a, s')
+              | SOME (Lexer.LParen, s') => sexprList s' []
+              | SOME (Lexer.RParen, _)  => Error ("unexpected )", s)
+              | NONE => EOF)
 
        and sexprList s acc =
-           case rdr s of
-               NONE => NONE
-             | SOME (Lexer.RParen, s') => SOME (List (rev acc), s')
-             | SOME _ => case sexpr s of
-                             SOME (x, s') => sexprList s' (x :: acc)
-                           | _ => NONE
+           (log "sexpList" s;
+            case rdr s of
+                NONE                    => Error ("unexpected EOF", s)
+              | SOME (Lexer.RParen, s') => Success (List (rev acc), s')
+              | SOME _                  =>
+                case sexpr s of
+                    Success (x, s') => sexprList s' (x :: acc)
+                  | result => result)
     in
        sexpr
     end
 
 end
 
-fun list s =
-   case s of
-       []      => NONE
-     | x :: xs => SOME (x, xs)
-
-
 local
    open Parser
-   val lex = Lexer.tokenize list
-   val parse = (parse lex) o String.explode
+
+   fun getc "" = NONE
+     | getc s  = SOME (String.sub (s, 0), String.substring (s, 1, size s - 1))
+
+   val lex   = Lexer.makeLexer getc
+   val parse = makeParser lex
 in
-   val SOME (Atom "foo", [])                           = parse "foo"
-   val SOME (List [], [])                              = parse "()"
-   val SOME (List [Atom "foo"], [])                    = parse "(foo)"
-   val SOME (List [Atom "foo", Atom "bar"], [])        = parse "(foo bar)"
-   val SOME (List [Atom "foo", List [Atom "bar"]], []) = parse "(foo (bar))"
+
+val Success (Atom "foo", "")                           = parse "foo"
+val Success (List [], "")                              = parse "()"
+val Success (List [Atom "foo"], "")                    = parse "(foo)"
+val Success (List [Atom "foo", Atom "bar"], "")        = parse "(foo bar)"
+val Success (List [Atom "foo", List [Atom "bar"]], "") = parse "(foo (bar))"
+
+val Success (Atom "foo", " bar")  = parse "foo bar"
+val Success (Atom "foo", ") bar") = parse "foo) bar"
+
+val Error ("unexpected )", ") bar") = parse ") bar"
+val Error ("unexpected EOF", "")    = parse "("
+
 end
