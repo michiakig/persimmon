@@ -1,4 +1,4 @@
-structure Pos :>
+structure Pos :
 sig
    (* Pos.t is an opaque type representing position in a stream *)
    (* ??? should include raw char count as well as line and col ??? *)
