@@ -7,15 +7,15 @@ struct
 
 datatype token = LParen | RParen | Atom of string
 
-fun show LParen   = "("
-  | show RParen   = ")"
-  | show (Atom a) = a
+fun show LParen   = "LParen"
+  | show RParen   = "RParen"
+  | show (Atom a) = "Atom(" ^ a ^ ")"
 
 (*
- * Given a char reader and stream, try to extract a Scheme atom
+ * Given a (positional) char reader and (positional) stream, try to extract a Scheme atom
  * (string) from the stream, and return it with the rest of the stream
  *)
-fun getAtom (rdr : (char, 'b) reader, s : 'b) : (string * 'b) option =
+fun getAtom (rdr : ((char * Pos.t), 'b) reader, s : 'b) : (string * 'b) option =
     let
        fun done [] _ = NONE
          | done acc s = SOME (String.implode (rev acc), s)
@@ -23,9 +23,9 @@ fun getAtom (rdr : (char, 'b) reader, s : 'b) : (string * 'b) option =
        fun getAtom' acc s =
            case rdr s of
                 NONE => done acc s
-              | SOME (#"(", rest) => done acc s
-              | SOME (#")", rest) => done acc s
-              | SOME (x,    rest) =>
+              | SOME ((#"(", _), rest) => done acc s
+              | SOME ((#")", _), rest) => done acc s
+              | SOME ((x,    _), rest) =>
                 if Char.isSpace x then
                    done acc s
                 else getAtom' (x :: acc) rest
@@ -34,18 +34,25 @@ fun getAtom (rdr : (char, 'b) reader, s : 'b) : (string * 'b) option =
     end
 
 (*
- * Given a char reader, produce a token reader
+ * Given a (positional) char reader, produce a (positional) token reader
  *)
-fun makeLexer (rdr : (char, 'a) reader) : (token, 'a) reader =
-    fn s =>
-       case rdr (StringCvt.skipWS rdr s) of
-           NONE => NONE
-         | SOME (#"(", s') => SOME (LParen, s')
-         | SOME (#")", s') => SOME (RParen, s')
-         | SOME (_, s') =>
-           case getAtom (rdr, StringCvt.skipWS rdr s) of
-               NONE => NONE
-             | SOME (atom, s') => SOME (Atom atom, s')
+fun makeLexer (rdr : (char * Pos.t, 'a) reader) : (token * Pos.t, 'a) reader =
+    let
+       fun skipWS rdr s =
+           case rdr s of
+               NONE => s
+             | SOME ((x, _), s') => if Char.isSpace x then skipWS rdr s' else s
+    in
+       fn s =>
+          case rdr (skipWS rdr s) of
+              NONE => NONE
+            | SOME ((#"(", p), s') => SOME ((LParen, p), s')
+            | SOME ((#")", p), s') => SOME ((RParen, p), s')
+            | SOME ((_, p), s') =>
+              case getAtom (rdr, skipWS rdr s) of
+                  NONE => NONE
+                | SOME (atom, s') => SOME ((Atom atom, p), s')
+    end
 
 end
 
@@ -62,13 +69,13 @@ SexprList -> .
 structure Parser =
 struct
 
-datatype sexpr = Atom of string | List of sexpr list
+datatype 'a sexpr = Atom of 'a * string | List of 'a * 'a sexpr list
 
 datatype ('a,'b) result = EOF | Error of string * 'b | Success of 'a * 'b
 type ('a,'b) parser = 'b -> ('a,'b) result
 
 (* given a token reader, produce an sexpr (AST) parser *)
-fun makeParser (rdr : (Lexer.token, 'a) reader) : (sexpr, 'a) parser =
+fun makeParser (rdr : (Lexer.token * Pos.t, 'a * Pos.t) reader) : (Pos.t sexpr, 'a * Pos.t) parser =
     let
        val debug = false
 
@@ -77,28 +84,28 @@ fun makeParser (rdr : (Lexer.token, 'a) reader) : (sexpr, 'a) parser =
               (print msg
               ; print ":"
               ; print (case rdr s of
-                           SOME (t, _) => (Lexer.show t)
-                         | NONE        => "eof")
+                           SOME ((t, _), _) => (Lexer.show t)
+                         | NONE             => "eof")
               ; print "\n")
            else ()
 
        fun sexpr s =
            (log "sexp" s;
             case rdr s of
-                SOME (Lexer.Atom a, s') => Success (Atom a, s')
-              | SOME (Lexer.LParen, s') => sexprList s' []
-              | SOME (Lexer.RParen, _)  => Error ("unexpected )", s)
+                SOME ((Lexer.Atom a, p), s') => Success (Atom (p, a), s')
+              | SOME ((Lexer.LParen, p), s') => sexprList p s' []
+              | SOME ((Lexer.RParen, _), _)  => Error ("unexpected )", s)
               | NONE => EOF)
 
-       and sexprList s acc =
+       and sexprList p s acc =
            (log "sexpList" s;
             case rdr s of
-                NONE                    => Error ("unexpected EOF", s)
-              | SOME (Lexer.RParen, s') => Success (List (rev acc), s')
-              | SOME _                  =>
+                NONE                         => Error ("unexpected EOF", s)
+              | SOME ((Lexer.RParen, _), s') => Success (List (p, rev acc), s')
+              | SOME _                       =>
                 case sexpr s of
-                    Success (x, s') => sexprList s' (x :: acc)
-                  | result => result)
+                    Success (x, s') => sexprList p s' (x :: acc)
+                  | other           => other)
     in
        sexpr
     end
@@ -106,25 +113,35 @@ fun makeParser (rdr : (Lexer.token, 'a) reader) : (sexpr, 'a) parser =
 end
 
 local
-   open Parser
-
    fun getc "" = NONE
      | getc s  = SOME (String.sub (s, 0), String.substring (s, 1, size s - 1))
 
-   val lex   = Lexer.makeLexer getc
-   val parse = makeParser lex
+   val getc = Pos.reader getc
+
 in
+   val lex   = Lexer.makeLexer getc
+   val parse = Parser.makeParser lex
+end
 
-val Success (Atom "foo", "")                           = parse "foo"
-val Success (List [], "")                              = parse "()"
-val Success (List [Atom "foo"], "")                    = parse "(foo)"
-val Success (List [Atom "foo", Atom "bar"], "")        = parse "(foo bar)"
-val Success (List [Atom "foo", List [Atom "bar"]], "") = parse "(foo (bar))"
+local
+   open Lexer
+in
+   val SOME ((Atom "foo", {col=0, line=1}),
+             ("", {col=3, line=1})) = lex (Pos.stream "foo")
 
-val Success (Atom "foo", " bar")  = parse "foo bar"
-val Success (Atom "foo", ") bar") = parse "foo) bar"
+   val SOME ((Atom "bar", {col=3, line=2}),
+             ("", {col=6, line=2})) = lex ("bar", {col=3, line=2})
 
-val Error ("unexpected )", ") bar") = parse ") bar"
-val Error ("unexpected EOF", "")    = parse "("
+   val NONE = lex (Pos.stream "")
+end
 
+local
+   open Parser
+in
+   val Success (List ({line=1, col=0},
+                      [Atom ({line=1, col=1}, "foo"),
+                       List ({line=2, col=0},
+                             [Atom ({line=2, col=1}, "bar")])]),
+                _) =
+       parse (Pos.stream "(foo\n(bar))")
 end
